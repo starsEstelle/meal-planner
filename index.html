@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meal Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#FFF8F0;
+    --cream-soft:#FFFDF9;
+    --sage:#AFCBB0;
+    --sage-dark:#7FA687;
+    --peach:#FFC9A8;
+    --peach-dark:#F7A472;
+    --berry:#F28C82;
+    --text:#4A4441;
+    --text-soft:#8A8078;
+    --white:#FFFFFF;
+    --radius-lg:28px;
+    --radius-md:18px;
+    --shadow:0 10px 30px rgba(180,150,120,0.15);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Nunito', sans-serif;
+    color:var(--text);
+    background:var(--cream);
+  }
+  h1,h2,h3,.logo{font-family:'Quicksand', sans-serif;}
+  a{text-decoration:none; color:inherit;}
+  button{font-family:inherit;}
+
+  /* ---------- NAV ---------- */
+  header{
+    position:sticky; top:0; z-index:50;
+    background:rgba(255,248,240,0.9);
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid rgba(0,0,0,0.04);
+  }
+  nav{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 24px; max-width:960px; margin:0 auto;
+  }
+  .logo{
+    font-size:1.3rem; font-weight:700; display:flex; align-items:center; gap:8px;
+    color:var(--text);
+  }
+  .nav-links{
+    display:flex; gap:28px; align-items:center; list-style:none;
+    font-weight:700; font-size:0.92rem; color:var(--text-soft);
+    margin:0; padding:0;
+  }
+  .nav-links a{cursor:pointer;}
+  .nav-links a:hover{color:var(--sage-dark);}
+  .nav-links a.active{color:var(--berry);}
+  .nav-add{
+    background:var(--berry); color:white; padding:10px 20px;
+    border-radius:999px; font-weight:700; font-size:0.9rem;
+    box-shadow:0 4px 14px rgba(242,140,130,0.35);
+    transition:transform .15s ease, box-shadow .15s ease;
+    border:none; cursor:pointer;
+  }
+  .nav-add:hover{transform:translateY(-2px); box-shadow:0 8px 20px rgba(242,140,130,0.45);}
+  .menu-btn{display:none; background:none; border:none; font-size:1.6rem; cursor:pointer; color:var(--text);}
+
+  @media (max-width:720px){
+    .nav-links{
+      position:absolute; top:100%; left:0; right:0;
+      background:var(--cream-soft);
+      flex-direction:column; gap:18px; padding:22px;
+      box-shadow:var(--shadow);
+      display:none;
+    }
+    .nav-links.open{display:flex;}
+    .menu-btn{display:block;}
+  }
+
+  /* ---------- MAIN ---------- */
+  main{max-width:960px; margin:0 auto; padding:40px 24px 100px;}
+  .view{display:none;}
+  .view.active{display:block;}
+  .page-head{
+    display:flex; align-items:baseline; justify-content:space-between;
+    flex-wrap:wrap; gap:10px; margin-bottom:28px;
+  }
+  .page-head h1{font-size:1.8rem; margin:0;}
+
+  .sync-status{
+    display:inline-flex; align-items:center; gap:6px; font-size:0.78rem; font-weight:700;
+    color:var(--text-soft); margin-bottom:20px;
+  }
+  .sync-status .dot{width:7px; height:7px; border-radius:50%; background:var(--text-soft);}
+  .sync-status.connected .dot{background:var(--sage-dark);}
+  .sync-status.connected{color:var(--sage-dark);}
+  .sync-status.error .dot{background:var(--berry);}
+  .sync-status.error{color:var(--berry);}
+
+  /* ---------- PLAN CARDS ---------- */
+  .plan-list{display:flex; flex-direction:column; gap:20px;}
+  .plan-card{
+    background:var(--white); border-radius:var(--radius-md); padding:22px 26px;
+    box-shadow:var(--shadow); position:relative;
+  }
+  .plan-card.latest{border:2px solid var(--sage);}
+  .plan-header{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:16px; flex-wrap:wrap; margin-bottom:18px;
+  }
+  .plan-main{display:flex; align-items:center; gap:16px;}
+  .plan-emoji{
+    width:48px; height:48px; border-radius:14px; background:var(--cream);
+    display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex-shrink:0;
+  }
+  .plan-dates{font-weight:700; font-size:1.05rem;}
+  .plan-tag{
+    display:inline-block; font-size:0.72rem; font-weight:800; color:var(--sage-dark);
+    background:#E4F0E0; padding:3px 10px; border-radius:999px; margin-left:8px;
+    text-transform:uppercase; letter-spacing:0.4px; vertical-align:middle;
+  }
+  .plan-sub{font-size:0.85rem; color:var(--text-soft); margin-top:4px;}
+  .plan-budget{text-align:right;}
+  .plan-budget strong{display:block; font-size:1.2rem; font-family:'Quicksand'; color:var(--berry);}
+  .plan-budget span{font-size:0.75rem; color:var(--text-soft);}
+  .plan-delete{
+    background:none; border:none; color:var(--text-soft); cursor:pointer; font-size:1rem;
+    padding:6px; border-radius:8px; line-height:1;
+  }
+  .plan-delete:hover{color:var(--berry); background:var(--cream);}
+
+  /* ---------- MEAL TABLE ---------- */
+  .table-scroll{overflow-x:auto;}
+  .meal-table{width:100%; border-collapse:collapse;}
+  .meal-table th, .meal-table td{border-bottom:1px solid #F2ECE4; padding:6px 4px;}
+  .meal-table thead th{
+    font-size:0.7rem; font-weight:800; color:var(--text-soft); text-transform:uppercase;
+    letter-spacing:0.4px; text-align:left; white-space:nowrap; min-width:110px;
+  }
+  .meal-table tbody th{
+    font-size:0.82rem; font-weight:700; color:var(--text); text-align:left;
+    white-space:nowrap; padding-right:14px;
+  }
+  .meal-input{
+    width:100%; min-width:100px; border:none; background:transparent;
+    font-family:inherit; font-size:0.88rem; padding:8px; border-radius:8px; color:var(--text);
+  }
+  .meal-input:focus{outline:none; background:var(--cream);}
+  .meal-input::placeholder{color:#D8CFC4;}
+
+  .empty-state{
+    text-align:center; padding:70px 20px; color:var(--text-soft);
+    background:var(--white); border-radius:var(--radius-md); box-shadow:var(--shadow);
+  }
+  .empty-state .big{font-size:2.4rem; margin-bottom:14px;}
+  .empty-state h3{color:var(--text); margin:0 0 8px;}
+  .empty-state p{margin:0 0 22px; font-size:0.92rem;}
+
+  .btn-primary{
+    background:var(--berry); color:white; padding:14px 28px; border-radius:999px;
+    font-weight:700; font-size:0.95rem; box-shadow:0 8px 22px rgba(242,140,130,0.4);
+    border:none; cursor:pointer; transition:transform .15s ease;
+  }
+  .btn-primary:hover{transform:translateY(-2px);}
+  .btn-secondary{
+    background:transparent; color:var(--text); padding:13px 26px; border-radius:999px;
+    font-weight:700; font-size:0.95rem; border:2px solid rgba(0,0,0,0.08);
+    cursor:pointer;
+  }
+
+  /* ---------- MODAL ---------- */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(74,68,65,0.35);
+    display:none; align-items:center; justify-content:center; z-index:100; padding:20px;
+  }
+  .modal-overlay.open{display:flex;}
+  .modal{
+    background:var(--cream-soft); border-radius:var(--radius-lg); padding:32px;
+    width:100%; max-width:420px; box-shadow:0 20px 60px rgba(0,0,0,0.2);
+  }
+  .modal h2{margin:0 0 6px; font-size:1.4rem;}
+  .modal .modal-sub{color:var(--text-soft); font-size:0.88rem; margin:0 0 24px;}
+  .field{margin-bottom:18px;}
+  .field label{display:block; font-weight:700; font-size:0.85rem; margin-bottom:8px;}
+  .field-row{display:flex; gap:12px;}
+  .field-row .field{flex:1;}
+  input[type="date"], input[type="number"]{
+    width:100%; padding:12px 14px; border-radius:12px; border:1.5px solid #E9DFD2;
+    font-family:inherit; font-size:0.95rem; background:var(--white); color:var(--text);
+  }
+  input:focus{outline:none; border-color:var(--sage);}
+  .peso-input{position:relative;}
+  .peso-input span{position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--text-soft); font-weight:700;}
+  .peso-input input{padding-left:32px;}
+  .modal-actions{display:flex; gap:12px; margin-top:26px;}
+  .modal-actions button{flex:1;}
+  .field-error{color:var(--berry); font-size:0.8rem; margin-top:6px; display:none;}
+
+  footer{padding:40px 24px 30px; border-top:1px solid #F0E8DC; text-align:center;}
+  footer p{color:var(--text-soft); font-size:0.85rem; margin:8px 0 0;}
+</style>
+</head>
+<body>
+
+<header>
+  <nav>
+    <a href="#" class="logo">🍽️ Meal Planner</a>
+    <ul class="nav-links" id="navLinks">
+      <li><a data-view="plans" class="active">Meal plans</a></li>
+      <li><a data-view="recipes">Recipes</a></li>
+      <li><a data-view="groceries">Groceries</a></li>
+      <li><button class="nav-add" id="openModalBtn">+ Add meal plan</button></li>
+    </ul>
+    <button class="menu-btn" id="menuBtn" aria-label="Toggle menu">☰</button>
+  </nav>
+</header>
+
+<main>
+  <section class="view active" id="view-plans">
+    <div class="page-head">
+      <h1>Your meal plans</h1>
+    </div>
+    <div class="sync-status" id="syncStatus"><span class="dot"></span><span id="syncStatusText">Synced with storage</span></div>
+    <div class="plan-list" id="planList">Loading…</div>
+  </section>
+
+  <section class="view" id="view-recipes">
+    <div class="page-head"><h1>Recipes</h1></div>
+    <div class="empty-state">
+      <div class="big">🍳</div>
+      <h3>Your recipe box is empty</h3>
+      <p>Recipes you save will show up here.</p>
+    </div>
+  </section>
+
+  <section class="view" id="view-groceries">
+    <div class="page-head"><h1>Groceries</h1></div>
+    <div class="empty-state">
+      <div class="big">🛒</div>
+      <h3>No grocery list yet</h3>
+      <p>Add a meal plan and its grocery list will show up here.</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <a href="#" class="logo">🍽️ Meal Planner</a>
+  <p><button id="openSettingsBtn" style="background:none; border:none; color:var(--sage-dark); font-weight:700; cursor:pointer; font-size:0.85rem; padding:0;">⚙ Storage settings</button></p>
+</footer>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2>New meal plan</h2>
+    <p class="modal-sub">What days should this plan cover, and what's the budget?</p>
+    <form id="planForm">
+      <div class="field-row">
+        <div class="field">
+          <label for="fromDate">From</label>
+          <input type="date" id="fromDate" required>
+        </div>
+        <div class="field">
+          <label for="toDate">To</label>
+          <input type="date" id="toDate" required>
+        </div>
+      </div>
+      <div class="field-error" id="dateError">End date must be on or after the start date.</div>
+      <div class="field">
+        <label for="budget">Budget</label>
+        <div class="peso-input">
+          <span>₱</span>
+          <input type="number" id="budget" min="0" step="1" placeholder="1500" required>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="cancelModalBtn">Cancel</button>
+        <button type="submit" class="btn-primary">Create plan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="settingsOverlay">
+  <div class="modal">
+    <h2>Storage settings</h2>
+    <p class="modal-sub">The site's default storage URL is set in index.html. Only fill this in if you want to point this browser at a different backend.</p>
+    <form id="settingsForm">
+      <div class="field">
+        <label for="storageUrlInput">Storage API URL</label>
+        <input type="text" id="storageUrlInput" placeholder="/api/plans">
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="cancelSettingsBtn">Cancel</button>
+        <button type="submit" class="btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  // Default storage: the /api/plans serverless function deployed alongside this site,
+  // backed by MongoDB Atlas (see api/plans.js).
+  const DEFAULT_STORAGE_URL = '/api/plans';
+
+  const STORAGE_URL_KEY = 'mealPlanner.storageUrl';
+  const MEAL_TYPES = ['breakfast', 'lunch', 'dinner'];
+
+  function getStorageUrl(){ return localStorage.getItem(STORAGE_URL_KEY) || DEFAULT_STORAGE_URL; }
+  function setStorageUrl(url){
+    if(url) localStorage.setItem(STORAGE_URL_KEY, url);
+    else localStorage.removeItem(STORAGE_URL_KEY);
+  }
+
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  }
+
+  // ---- Storage layer: everything lives in MongoDB, via the /api/plans function ----
+  async function fetchPlans(){
+    try{
+      const res = await fetch(getStorageUrl());
+      if(!res.ok) throw new Error('Bad response: ' + res.status);
+      const plans = await res.json();
+      setSyncStatus('connected');
+      return plans;
+    }catch(err){
+      console.warn('Could not reach storage', err);
+      setSyncStatus('error');
+      return [];
+    }
+  }
+
+  async function postAction(body){
+    try{
+      const res = await fetch(getStorageUrl(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if(!res.ok) throw new Error('Bad response: ' + res.status);
+      const plans = await res.json();
+      setSyncStatus('connected');
+      return plans;
+    }catch(err){
+      console.warn('Could not save to storage', err);
+      setSyncStatus('error');
+      alert('Could not reach storage. Check Storage settings and try again.');
+      return null;
+    }
+  }
+
+  function createPlan(plan){ return postAction({ action: 'create', plan }); }
+  function deletePlan(id){ return postAction({ action: 'delete', id }); }
+  function updateMeal(planId, date, mealType, value){
+    return postAction({ action: 'updateMeal', id: planId, date, mealType, value });
+  }
+
+  function setSyncStatus(state){
+    const el = document.getElementById('syncStatus');
+    const text = document.getElementById('syncStatusText');
+    el.className = 'sync-status' + (state === 'connected' ? ' connected' : ' error');
+    text.textContent = state === 'connected' ? 'Synced with storage' : 'Could not reach storage';
+  }
+
+  function formatDate(iso){
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+  }
+
+  function formatDayHeader(iso){
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('en-US', { weekday:'short', day:'numeric' });
+  }
+
+  function dateRange(fromDate, toDate){
+    const dates = [];
+    const cur = new Date(fromDate + 'T00:00:00');
+    const end = new Date(toDate + 'T00:00:00');
+    while(cur <= end){
+      dates.push(cur.toISOString().slice(0,10));
+      cur.setDate(cur.getDate() + 1);
+    }
+    return dates;
+  }
+
+  function mealTableHtml(plan){
+    const dates = dateRange(plan.fromDate, plan.toDate);
+    const meals = plan.meals || {};
+    const rows = MEAL_TYPES.map(type => `
+      <tr>
+        <th>${type[0].toUpperCase()}${type.slice(1)}</th>
+        ${dates.map(date => `<td><input class="meal-input" type="text" placeholder="—"
+          data-plan="${plan.id}" data-date="${date}" data-type="${type}"
+          value="${escapeHtml((meals[date] || {})[type] || '')}"></td>`).join('')}
+      </tr>`).join('');
+
+    return `
+      <div class="table-scroll">
+        <table class="meal-table">
+          <thead><tr><th></th>${dates.map(d => `<th>${formatDayHeader(d)}</th>`).join('')}</tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }
+
+  async function renderPlans(){
+    const list = document.getElementById('planList');
+    const syncStatus = document.getElementById('syncStatus');
+
+    if(!getStorageUrl()){
+      syncStatus.style.display = 'none';
+      list.innerHTML = `
+        <div class="empty-state">
+          <div class="big">🔌</div>
+          <h3>Storage isn't set up yet</h3>
+          <p>Connect a storage backend to start creating meal plans.</p>
+          <button class="btn-primary" id="setupStorageBtn">⚙ Set up storage</button>
+        </div>`;
+      document.getElementById('setupStorageBtn').addEventListener('click', openSettingsModal);
+      return;
+    }
+    syncStatus.style.display = '';
+
+    const plans = (await fetchPlans()).sort((a,b) => b.createdAt - a.createdAt);
+    list.innerHTML = '';
+
+    if(plans.length === 0){
+      list.innerHTML = `
+        <div class="empty-state">
+          <div class="big">🍽️</div>
+          <h3>No meal plans yet</h3>
+          <p>Create your first plan to get started.</p>
+          <button class="btn-primary" id="emptyAddBtn">+ Add meal plan</button>
+        </div>`;
+      document.getElementById('emptyAddBtn').addEventListener('click', openModal);
+      return;
+    }
+
+    plans.forEach((plan, i) => {
+      const days = Math.round((new Date(plan.toDate) - new Date(plan.fromDate)) / (1000*60*60*24)) + 1;
+      const card = document.createElement('div');
+      card.className = 'plan-card' + (i === 0 ? ' latest' : '');
+      card.innerHTML = `
+        <div class="plan-header">
+          <div class="plan-main">
+            <div class="plan-emoji">🍽️</div>
+            <div>
+              <div class="plan-dates">${formatDate(plan.fromDate)} – ${formatDate(plan.toDate)}${i === 0 ? '<span class="plan-tag">Latest</span>' : ''}</div>
+              <div class="plan-sub">${days} day${days === 1 ? '' : 's'}</div>
+            </div>
+          </div>
+          <div class="plan-main" style="gap:6px;">
+            <div class="plan-budget">
+              <strong>₱${Number(plan.budget).toLocaleString()}</strong>
+              <span>budget</span>
+            </div>
+            <button class="plan-delete" title="Delete plan" data-id="${plan.id}">✕</button>
+          </div>
+        </div>
+        ${mealTableHtml(plan)}
+      `;
+      list.appendChild(card);
+    });
+
+    list.querySelectorAll('.plan-delete').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        await deletePlan(btn.dataset.id);
+        renderPlans();
+      });
+    });
+
+    list.querySelectorAll('.meal-input').forEach(input => {
+      input.addEventListener('change', async () => {
+        const { plan, date, type } = input.dataset;
+        input.disabled = true;
+        await updateMeal(plan, date, type, input.value);
+        input.disabled = false;
+        input.focus();
+      });
+    });
+  }
+
+  // ---- Nav tab switching ----
+  const navLinks = document.getElementById('navLinks');
+  document.querySelectorAll('.nav-links a[data-view]').forEach(link => {
+    link.addEventListener('click', () => {
+      document.querySelectorAll('.nav-links a[data-view]').forEach(l => l.classList.remove('active'));
+      link.classList.add('active');
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById('view-' + link.dataset.view).classList.add('active');
+      navLinks.classList.remove('open');
+    });
+  });
+
+  document.getElementById('menuBtn').addEventListener('click', () => navLinks.classList.toggle('open'));
+
+  // ---- Modal ----
+  const overlay = document.getElementById('modalOverlay');
+  const form = document.getElementById('planForm');
+  const dateError = document.getElementById('dateError');
+
+  function openModal(){
+    form.reset();
+    dateError.style.display = 'none';
+    overlay.classList.add('open');
+    document.getElementById('fromDate').focus();
+  }
+  function closeModal(){ overlay.classList.remove('open'); }
+
+  function maybeOpenPlanModal(){
+    if(!getStorageUrl()){
+      openSettingsModal();
+      return;
+    }
+    openModal();
+  }
+
+  document.getElementById('openModalBtn').addEventListener('click', maybeOpenPlanModal);
+  document.getElementById('cancelModalBtn').addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e) => { if(e.target === overlay) closeModal(); });
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeModal(); });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fromDate = document.getElementById('fromDate').value;
+    const toDate = document.getElementById('toDate').value;
+    const budget = document.getElementById('budget').value;
+
+    if(new Date(toDate) < new Date(fromDate)){
+      dateError.style.display = 'block';
+      return;
+    }
+    dateError.style.display = 'none';
+
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    await createPlan({
+      id: crypto.randomUUID(),
+      fromDate, toDate,
+      budget: Number(budget),
+      createdAt: Date.now(),
+      meals: {}
+    });
+    submitBtn.disabled = false;
+    renderPlans();
+    closeModal();
+  });
+
+  // ---- Storage settings ----
+  const settingsOverlay = document.getElementById('settingsOverlay');
+  const settingsForm = document.getElementById('settingsForm');
+  const storageUrlInput = document.getElementById('storageUrlInput');
+
+  function openSettingsModal(){
+    storageUrlInput.value = getStorageUrl();
+    settingsOverlay.classList.add('open');
+  }
+
+  document.getElementById('openSettingsBtn').addEventListener('click', openSettingsModal);
+  document.getElementById('cancelSettingsBtn').addEventListener('click', () => settingsOverlay.classList.remove('open'));
+  settingsOverlay.addEventListener('click', (e) => { if(e.target === settingsOverlay) settingsOverlay.classList.remove('open'); });
+
+  settingsForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    setStorageUrl(storageUrlInput.value.trim());
+    settingsOverlay.classList.remove('open');
+    renderPlans();
+  });
+
+  renderPlans();
+</script>
+
+</body>
+</html>
