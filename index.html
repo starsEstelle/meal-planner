@@ -509,6 +509,22 @@
             <option value="grocery">Grocery Store</option>
           </select>
         </div>
+        <div class="field" id="grocerySubCategoryField">
+          <label for="grocerySubCategory">Sub-category</label>
+          <select id="grocerySubCategory">
+            <option value="food">Food</option>
+            <option value="toiletries">Toiletries</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="groceryPricingUnit">Pricing</label>
+          <select id="groceryPricingUnit">
+            <option value="unit">Per item</option>
+            <option value="kg">Per kg</option>
+          </select>
+        </div>
         <div class="field">
           <label for="groceryPrice">Price</label>
           <div class="peso-input">
@@ -660,6 +676,15 @@
   function groceryName(id){
     const item = groceriesCache.find(g => g.id === id);
     return item ? item.name : null;
+  }
+
+  function categoryLabel(g){
+    if(g.category === 'market') return 'Market';
+    return g.subCategory === 'toiletries' ? 'Grocery Store · Toiletries' : 'Grocery Store · Food';
+  }
+
+  function priceLabel(g){
+    return `₱${Number(g.price).toLocaleString()}${g.pricingUnit === 'kg' ? '/kg' : ''}`;
   }
 
   function setSyncStatus(state){
@@ -1014,10 +1039,11 @@
       const rows = recipe.ingredientIds.map(gid => {
         const grocery = groceriesCache.find(g => g.id === gid);
         if(!grocery) return '';
+        const isKg = grocery.pricingUnit === 'kg';
         const qty = prevQuantities[gid] === undefined ? 1 : prevQuantities[gid];
         return `<div class="qty-row">
-          <span>${escapeHtml(grocery.name)}</span>
-          <input type="number" class="qty-input" min="0" step="1" value="${qty}"
+          <span>${escapeHtml(grocery.name)}${isKg ? ' <span class="picker-sub">(specify kg)</span>' : ''}</span>
+          <input type="number" class="qty-input" min="0" step="${isKg ? '0.1' : '1'}" value="${qty}"
             data-recipe="${rid}" data-grocery="${gid}">
         </div>`;
       }).join('');
@@ -1178,6 +1204,9 @@
   let selectedIngredientIds = new Set();
 
   function renderIngredientPickerList(query = ''){
+    // Toiletries aren't edible — keep them out of the recipe ingredient list.
+    const foodItems = groceriesCache.filter(g => !(g.category === 'grocery' && g.subCategory === 'toiletries'));
+
     if(groceriesCache.length === 0){
       ingredientPickerList.innerHTML = `
         <div class="picker-empty">
@@ -1191,8 +1220,13 @@
       return;
     }
 
+    if(foodItems.length === 0){
+      ingredientPickerList.innerHTML = `<div class="picker-empty">All your groceries are marked as Toiletries — add a food item first.</div>`;
+      return;
+    }
+
     const q = query.trim().toLowerCase();
-    const filtered = groceriesCache.filter(g => g.name.toLowerCase().includes(q));
+    const filtered = foodItems.filter(g => g.name.toLowerCase().includes(q));
 
     ingredientPickerList.innerHTML = filtered.map(g => `
       <label class="picker-item">
@@ -1202,7 +1236,7 @@
           : `<div class="picker-thumb-placeholder">🛒</div>`}
         <div>
           <div class="picker-name">${escapeHtml(g.name)}</div>
-          <div class="picker-sub">₱${Number(g.price).toLocaleString()} · ${g.category === 'market' ? 'Market' : 'Grocery Store'}</div>
+          <div class="picker-sub">${priceLabel(g)} · ${categoryLabel(g)}</div>
         </div>
       </label>`).join('');
 
@@ -1326,8 +1360,8 @@
         <div class="item-body">
           <div class="item-name">${escapeHtml(g.name)}</div>
           <div class="grocery-meta">
-            <span class="category-badge category-${g.category}">${g.category === 'market' ? 'Market' : 'Grocery Store'}</span>
-            <span class="grocery-price">₱${Number(g.price).toLocaleString()}</span>
+            <span class="category-badge category-${g.category}">${categoryLabel(g)}</span>
+            <span class="grocery-price">${priceLabel(g)}</span>
           </div>
         </div>
       </div>`).join('')}</div>`;
@@ -1356,6 +1390,9 @@
   const grocerySubmitBtn = document.getElementById('grocerySubmitBtn');
   const groceryThumbInput = document.getElementById('groceryThumbInput');
   const groceryThumbPreview = document.getElementById('groceryThumbPreview');
+  const groceryCategorySelect = document.getElementById('groceryCategory');
+  const grocerySubCategoryField = document.getElementById('grocerySubCategoryField');
+  const grocerySubCategorySelect = document.getElementById('grocerySubCategory');
   let groceryThumbnailDataUrl = null;
   let editingGroceryId = null;
 
@@ -1367,13 +1404,22 @@
     groceryThumbPreview.classList.add('show');
   });
 
+  // Sub-category (Food / Toiletries) only applies within Grocery Store — Market is food by definition.
+  function updateSubCategoryVisibility(){
+    grocerySubCategoryField.style.display = groceryCategorySelect.value === 'grocery' ? '' : 'none';
+  }
+  groceryCategorySelect.addEventListener('change', updateSubCategoryVisibility);
+
   function openGroceryModal(item = null){
     editingGroceryId = item ? item.id : null;
     groceryModalTitle.textContent = item ? 'Edit grocery item' : 'New grocery item';
     grocerySubmitBtn.textContent = item ? 'Update item' : 'Save item';
     groceryForm.reset();
     document.getElementById('groceryName').value = item ? item.name : '';
-    document.getElementById('groceryCategory').value = item ? item.category : 'market';
+    groceryCategorySelect.value = item ? item.category : 'market';
+    grocerySubCategorySelect.value = (item && item.subCategory) || 'food';
+    document.getElementById('groceryPricingUnit').value = (item && item.pricingUnit) || 'unit';
+    updateSubCategoryVisibility();
     document.getElementById('groceryPrice').value = item ? item.price : '';
     groceryThumbnailDataUrl = item ? item.thumbnail : null;
     if(groceryThumbnailDataUrl){ groceryThumbPreview.src = groceryThumbnailDataUrl; groceryThumbPreview.classList.add('show'); }
@@ -1390,7 +1436,9 @@
   groceryForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = document.getElementById('groceryName').value.trim();
-    const category = document.getElementById('groceryCategory').value;
+    const category = groceryCategorySelect.value;
+    const subCategory = category === 'grocery' ? grocerySubCategorySelect.value : null;
+    const pricingUnit = document.getElementById('groceryPricingUnit').value;
     const price = Number(document.getElementById('groceryPrice').value);
 
     grocerySubmitBtn.disabled = true;
@@ -1398,6 +1446,8 @@
       id: editingGroceryId || crypto.randomUUID(),
       name,
       category,
+      subCategory,
+      pricingUnit,
       price,
       thumbnail: groceryThumbnailDataUrl,
       createdAt: Date.now()
@@ -1509,6 +1559,7 @@
     const rows = items.map(entry => {
       const grocery = groceriesCache.find(g => g.id === entry.itemId);
       if(!grocery) return '';
+      const isKg = grocery.pricingUnit === 'kg';
       const lineTotal = Number(grocery.price) * entry.quantity;
       total += lineTotal;
       const usedNames = entry.recipeIds.map(recipeName).filter(Boolean);
@@ -1519,8 +1570,8 @@
             ${grocery.thumbnail
               ? `<img class="glist-thumb" src="${grocery.thumbnail}" alt="">`
               : `<div class="glist-thumb-placeholder">🛒</div>`}
-            <div class="glist-name">${escapeHtml(grocery.name)}</div>
-            <input type="number" class="qty-input glist-qty" min="0" step="1" value="${entry.quantity}" data-item="${entry.itemId}">
+            <div class="glist-name">${escapeHtml(grocery.name)}${isKg ? ' <span class="picker-sub">(kg)</span>' : ''}</div>
+            <input type="number" class="qty-input glist-qty" min="0" step="${isKg ? '0.1' : '1'}" value="${entry.quantity}" data-item="${entry.itemId}">
             <div class="glist-price">₱${lineTotal.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
             <button type="button" class="glist-remove" title="Remove item" data-item="${entry.itemId}">✕</button>
           </div>
@@ -1607,7 +1658,7 @@
           : `<div class="picker-thumb-placeholder">🛒</div>`}
         <div>
           <div class="picker-name">${escapeHtml(g.name)}</div>
-          <div class="picker-sub">₱${Number(g.price).toLocaleString()} · ${g.category === 'market' ? 'Market' : 'Grocery Store'}</div>
+          <div class="picker-sub">${priceLabel(g)} · ${categoryLabel(g)}</div>
         </div>
       </label>`).join('');
 

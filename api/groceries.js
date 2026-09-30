@@ -20,6 +20,10 @@ function docToItem(doc) {
     id: doc._id,
     name: doc.name,
     category: doc.category,
+    // Only meaningful when category === 'grocery' — Market items are food by definition.
+    subCategory: doc.subCategory || null,
+    // 'unit' (price per item) or 'kg' (price per kilogram).
+    pricingUnit: doc.pricingUnit || 'unit',
     price: doc.price,
     thumbnail: doc.thumbnail || null,
     createdAt: doc.createdAt,
@@ -59,6 +63,8 @@ module.exports = async function handler(req, res) {
           _id: item.id,
           name: item.name,
           category: item.category,
+          subCategory: item.subCategory || null,
+          pricingUnit: item.pricingUnit || 'unit',
           price: item.price,
           thumbnail: item.thumbnail || null,
           createdAt: item.createdAt,
@@ -70,6 +76,8 @@ module.exports = async function handler(req, res) {
           { $set: {
             name: item.name,
             category: item.category,
+            subCategory: item.subCategory || null,
+            pricingUnit: item.pricingUnit || 'unit',
             price: item.price,
             thumbnail: item.thumbnail || null,
           } }
