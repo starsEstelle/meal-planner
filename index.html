@@ -192,14 +192,14 @@
   .field label{display:block; font-weight:700; font-size:0.85rem; margin-bottom:8px;}
   .field-row{display:flex; gap:12px;}
   .field-row .field{flex:1;}
-  input[type="date"], input[type="number"]{
+  .field input[type="date"], .field input[type="number"]{
     width:100%; padding:12px 14px; border-radius:12px; border:1.5px solid #E9DFD2;
     font-family:inherit; font-size:0.95rem; background:var(--white); color:var(--text);
   }
   input:focus{outline:none; border-color:var(--sage);}
   .peso-input{position:relative;}
   .peso-input span{position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--text-soft); font-weight:700;}
-  .peso-input input{padding-left:32px;}
+  .field .peso-input input[type="number"]{padding-left:32px;}
   .modal-actions{display:flex; gap:12px; margin-top:26px;}
   .modal-actions button{flex:1;}
   .field-error{color:var(--berry); font-size:0.8rem; margin-top:6px; display:none;}
@@ -281,6 +281,8 @@
     background:var(--cream); color:var(--text); font-size:0.76rem; font-weight:700;
     padding:5px 10px; border-radius:999px; white-space:nowrap;
   }
+  .meal-chip-editable{cursor:pointer; transition:background 0.15s ease, color 0.15s ease;}
+  .meal-chip-editable:hover{background:var(--sage); color:white;}
   .meal-add-btn{
     width:26px; height:26px; border-radius:50%; border:1.5px dashed #D8CFC4; background:none;
     color:var(--text-soft); font-size:1rem; cursor:pointer; line-height:1; flex-shrink:0;
@@ -321,6 +323,14 @@
     font-family:inherit; font-size:0.9rem; background:var(--white); color:var(--text);
   }
   .qty-input:focus{outline:none; border-color:var(--sage);}
+  .qty-dual-field{display:flex; align-items:center; gap:4px;}
+  .qty-dual-separator{color:var(--text-soft); font-weight:700; font-size:0.85rem;}
+  .qty-peso-prefix{color:var(--text-soft); font-weight:700; font-size:0.85rem;}
+  .qty-peso-input{
+    width:72px; text-align:center; padding:8px 6px; border-radius:10px; border:1.5px solid #E9DFD2;
+    font-family:inherit; font-size:0.9rem; background:var(--white); color:var(--text);
+  }
+  .qty-peso-input:focus{outline:none; border-color:var(--sage);}
 
   /* ---------- GROCERY LIST (per meal plan) ---------- */
   .glist-section{margin-bottom:22px;}
@@ -331,10 +341,24 @@
   .glist-container{
     background:var(--white); border-radius:var(--radius-md); padding:6px 22px; box-shadow:var(--shadow);
   }
-  .glist-row{padding:14px 0; border-bottom:1px solid #F2ECE4; cursor:grab;}
+  .glist-row{
+    padding:14px 0; border-bottom:1px solid #F2ECE4; border-radius:10px;
+    transition:opacity 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease, background 0.15s ease;
+  }
   .glist-row:last-child{border-bottom:none;}
-  .glist-row.dragging{opacity:0.35;}
+  .glist-row.dragging{
+    opacity:0.55; transform:scale(1.02); box-shadow:0 10px 24px rgba(74,68,65,0.18);
+    position:relative; z-index:2; background:var(--cream-soft);
+  }
+  .glist-row.drag-over{background:var(--cream); box-shadow:inset 0 2px 0 var(--sage);}
   .glist-main{display:flex; align-items:center; gap:10px;}
+  .glist-drag-handle{
+    cursor:grab; color:var(--text-soft); font-size:0.9rem; line-height:1; flex-shrink:0;
+    padding:4px 2px; margin-left:-14px; user-select:none;
+    transition:color 0.15s ease, transform 0.1s ease;
+  }
+  .glist-drag-handle:hover{color:var(--sage-dark);}
+  .glist-drag-handle:active{cursor:grabbing; transform:scale(1.2);}
   .glist-check{width:20px; height:20px; flex-shrink:0;}
   .glist-name{
     flex:1; min-width:0; font-weight:700; font-size:0.92rem;
@@ -553,6 +577,7 @@
           <label for="grocerySubCategory">Sub-category</label>
           <select id="grocerySubCategory">
             <option value="food">Food</option>
+            <option value="meat">Meat</option>
             <option value="toiletries">Toiletries</option>
           </select>
         </div>
@@ -732,8 +757,13 @@
     return item ? displayName(item) : null;
   }
 
+  function isMeatCategory(g){
+    return g.category === 'grocery' && g.subCategory === 'meat';
+  }
+
   function categoryLabel(g){
     if(g.category === 'market') return 'Market';
+    if(g.subCategory === 'meat') return 'Grocery Store · Meat';
     return g.subCategory === 'toiletries' ? 'Grocery Store · Toiletries' : 'Grocery Store · Food';
   }
 
@@ -787,7 +817,11 @@
   function mealCellHtml(plan, date, type, isEditing){
     const entries = ((plan.meals || {})[date] || {})[type] || [];
     const chips = entries.map(entry => recipeName(entry.recipeId)).filter(Boolean)
-      .map(name => `<span class="meal-chip">${escapeHtml(name)}</span>`).join('');
+      .map(name => isEditing
+        ? `<span class="meal-chip meal-chip-editable" title="Edit quantities"
+            data-plan="${plan.id}" data-date="${date}" data-type="${type}">${escapeHtml(name)}</span>`
+        : `<span class="meal-chip">${escapeHtml(name)}</span>`)
+      .join('');
     const addBtn = isEditing
       ? `<button type="button" class="meal-add-btn" title="Add recipes"
           data-plan="${plan.id}" data-date="${date}" data-type="${type}">+</button>`
@@ -906,6 +940,12 @@
     list.querySelectorAll('.meal-add-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         openPicker(btn.dataset.plan, btn.dataset.date, btn.dataset.type);
+      });
+    });
+
+    list.querySelectorAll('.meal-chip-editable').forEach(chip => {
+      chip.addEventListener('click', () => {
+        openQuantitiesForSlot(chip.dataset.plan, chip.dataset.date, chip.dataset.type);
       });
     });
 
@@ -1122,6 +1162,56 @@
   const quantitiesList = document.getElementById('quantitiesList');
   let quantitiesRecipeIds = [];
 
+  // Clicking an already-assigned recipe chip (in edit mode) jumps straight to editing its
+  // quantities, skipping the recipe picker since the selection isn't changing.
+  function openQuantitiesForSlot(planId, date, type){
+    pickerContext = { planId, date, type };
+    const recipeIds = currentSelectedEntries().map(entry => entry.recipeId);
+    if(recipeIds.length === 0) return;
+    openQuantities(recipeIds);
+  }
+
+  // Meat priced per kg gets a linked kg/₱ pair — editing either updates the other using
+  // the selected variant's price per kg. Everything else keeps a single plain quantity box.
+  function isMeatByKg(variant){
+    return isMeatCategory(variant) && variant.pricingUnit === 'kg';
+  }
+
+  function buildQtyInputWrapHtml(variant, qty){
+    if(isMeatByKg(variant)){
+      const pesos = (qty * Number(variant.price)).toFixed(2);
+      return `
+        <div class="qty-dual-field">
+          <input type="number" class="qty-input qty-kg-input" min="0" step="0.1" value="${qty}">
+          <span class="qty-unit-suffix">kg</span>
+        </div>
+        <span class="qty-dual-separator">=</span>
+        <div class="qty-dual-field">
+          <span class="qty-peso-prefix">₱</span>
+          <input type="number" class="qty-peso-input" min="0" step="0.01" value="${pesos}">
+        </div>`;
+    }
+    const isKg = variant.pricingUnit === 'kg';
+    return `<input type="number" class="qty-input" min="0" step="${isKg ? '0.1' : '1'}" value="${qty}">
+      <span class="qty-unit-suffix">${isKg ? 'kg' : ''}</span>`;
+  }
+
+  function wireQtyInputWrap(wrap, variant){
+    if(!isMeatByKg(variant)) return;
+    const kgInput = wrap.querySelector('.qty-kg-input');
+    const pesoInput = wrap.querySelector('.qty-peso-input');
+    const price = Number(variant.price) || 0;
+
+    kgInput.addEventListener('input', () => {
+      const kg = Number(kgInput.value) || 0;
+      pesoInput.value = (kg * price).toFixed(2);
+    });
+    pesoInput.addEventListener('input', () => {
+      const pesos = Number(pesoInput.value) || 0;
+      kgInput.value = price > 0 ? (pesos / price).toFixed(3) : 0;
+    });
+  }
+
   // Each recipe ingredient is a generic Item (e.g. "Soy Sauce"); here the user picks which
   // specific brand variant to actually buy for this meal, then how much of it.
   function openQuantities(recipeIds){
@@ -1140,7 +1230,6 @@
         const prev = prevQuantities[itemKey]; // { itemId, quantity } | undefined
         const selectedVariantId = (prev && variants.some(v => v.id === prev.itemId)) ? prev.itemId : variants[0].id;
         const selectedVariant = variants.find(v => v.id === selectedVariantId);
-        const isKg = selectedVariant.pricingUnit === 'kg';
         const qty = prev ? prev.quantity : 1;
 
         const options = variants.map(v =>
@@ -1150,10 +1239,7 @@
         return `<div class="qty-row" data-recipe="${rid}" data-item-key="${escapeHtml(itemKey)}">
           <div class="qty-item-name">${escapeHtml(displayItemKey(itemKey))}</div>
           <select class="qty-variant-select">${options}</select>
-          <div class="qty-input-wrap">
-            <input type="number" class="qty-input" min="0" step="${isKg ? '0.1' : '1'}" value="${qty}">
-            <span class="qty-unit-suffix">${isKg ? 'kg' : ''}</span>
-          </div>
+          <div class="qty-input-wrap">${buildQtyInputWrapHtml(selectedVariant, qty)}</div>
         </div>`;
       }).join('') || `<div class="picker-sub">No purchasable items available for this recipe's ingredients.</div>`;
 
@@ -1165,11 +1251,16 @@
 
     quantitiesList.querySelectorAll('.qty-row').forEach(row => {
       const select = row.querySelector('.qty-variant-select');
+      const initialVariant = groceriesCache.find(g => g.id === select.value);
+      if(initialVariant) wireQtyInputWrap(row.querySelector('.qty-input-wrap'), initialVariant);
+
       select.addEventListener('change', () => {
         const variant = groceriesCache.find(g => g.id === select.value);
-        const isKg = variant && variant.pricingUnit === 'kg';
-        row.querySelector('.qty-input').step = isKg ? '0.1' : '1';
-        row.querySelector('.qty-unit-suffix').textContent = isKg ? 'kg' : '';
+        if(!variant) return;
+        const wrap = row.querySelector('.qty-input-wrap');
+        const currentQty = Number(wrap.querySelector('.qty-kg-input, .qty-input')?.value) || 1;
+        wrap.innerHTML = buildQtyInputWrapHtml(variant, currentQty);
+        wireQtyInputWrap(wrap, variant);
       });
     });
 
@@ -1655,29 +1746,157 @@
     document.getElementById('view-' + viewName).classList.add('active');
   }
 
-  // Sums each ingredient's quantity across every meal in the plan (skipping zeros),
-  // and records which recipes in this plan called for it.
-  function computeInitialGroceryItems(plan){
-    const totals = new Map(); // specific grocery itemId -> { quantity, recipeIds: Set }
+  // itemId (specific grocery variant) -> Map(recipeId -> quantity that recipe currently
+  // needs of it, summed across every meal slot it's assigned to in this plan).
+  function computeRequiredGroceryUsage(plan){
+    const usage = new Map();
     Object.values(plan.meals || {}).forEach(mealsByType => {
       Object.values(mealsByType).forEach(entries => {
         (entries || []).forEach(entry => {
-          const recipe = recipesCache.find(r => r.id === entry.recipeId);
-          // quantities is keyed by generic item (e.g. "soy sauce"); each value names the
-          // specific brand variant chosen for it plus how much of that variant is needed.
+          if(!recipesCache.some(r => r.id === entry.recipeId)) return; // recipe deleted since
           Object.values(entry.quantities || {}).forEach(({ itemId, quantity }) => {
             if(!quantity) return;
-            if(!totals.has(itemId)) totals.set(itemId, { quantity: 0, recipeIds: new Set() });
-            const t = totals.get(itemId);
-            t.quantity += quantity;
-            if(recipe) t.recipeIds.add(recipe.id);
+            if(!usage.has(itemId)) usage.set(itemId, new Map());
+            const perRecipe = usage.get(itemId);
+            perRecipe.set(entry.recipeId, (perRecipe.get(entry.recipeId) || 0) + quantity);
           });
         });
       });
     });
-    return Array.from(totals.entries()).map(([itemId, t]) => ({
-      itemId, quantity: t.quantity, checked: false, recipeIds: Array.from(t.recipeIds)
-    }));
+    return usage;
+  }
+
+  // Meat items are never combined — each recipe using one gets its own separate row
+  // instead of being summed into a single line, unlike every other category.
+  function computeInitialGroceryItems(plan){
+    const usage = computeRequiredGroceryUsage(plan);
+    const items = [];
+    usage.forEach((perRecipe, itemId) => {
+      const grocery = groceriesCache.find(g => g.id === itemId);
+      if(grocery && isMeatCategory(grocery)){
+        perRecipe.forEach((qty, recipeId) => {
+          items.push({
+            id: crypto.randomUUID(), itemId, quantity: qty, checked: false,
+            recipeIds: [recipeId], recipeContributions: { [recipeId]: qty },
+          });
+        });
+      }else{
+        items.push({
+          id: crypto.randomUUID(), itemId,
+          quantity: Array.from(perRecipe.values()).reduce((a, b) => a + b, 0),
+          checked: false, recipeIds: Array.from(perRecipe.keys()),
+          recipeContributions: Object.fromEntries(perRecipe),
+        });
+      }
+    });
+    return items;
+  }
+
+  // Reconciles a persisted grocery list against what the plan's recipes currently require.
+  // New items are added outright. For items already on the list, only the *delta* from
+  // newly-added, removed, or changed recipe usage is folded in — any manual top-up the
+  // user added on top of the recipe-driven amount is preserved rather than overwritten.
+  // Meat items are kept as one row per recipe rather than a single combined row.
+  function syncGroceryListWithPlan(items, usage){
+    let changed = false;
+
+    // Migration: give every row a stable id (older rows were keyed by itemId alone,
+    // which breaks once the same item can appear in more than one row).
+    items.forEach(item => {
+      if(!item.id){ item.id = crypto.randomUUID(); changed = true; }
+    });
+
+    // Migration: an item switched to the Meat sub-category after already being a single
+    // combined row — split it into one row per recipe so it stops being aggregated.
+    for(let i = items.length - 1; i >= 0; i--){
+      const item = items[i];
+      const grocery = groceriesCache.find(g => g.id === item.itemId);
+      if(grocery && isMeatCategory(grocery) && (item.recipeIds || []).length > 1){
+        const contributions = item.recipeContributions || {};
+        items.splice(i, 1);
+        Object.entries(contributions).forEach(([recipeId, qty]) => {
+          items.push({
+            id: crypto.randomUUID(), itemId: item.itemId, quantity: qty,
+            checked: item.checked, recipeIds: [recipeId], recipeContributions: { [recipeId]: qty },
+          });
+        });
+        changed = true;
+      }
+    }
+
+    usage.forEach((perRecipe, itemId) => {
+      const grocery = groceriesCache.find(g => g.id === itemId);
+
+      if(grocery && isMeatCategory(grocery)){
+        perRecipe.forEach((qty, recipeId) => {
+          const row = items.find(i => i.itemId === itemId && (i.recipeIds || []).length === 1 && i.recipeIds[0] === recipeId);
+          if(!row){
+            items.push({
+              id: crypto.randomUUID(), itemId, quantity: qty, checked: false,
+              recipeIds: [recipeId], recipeContributions: { [recipeId]: qty },
+            });
+            changed = true;
+          }else if((row.recipeContributions || {})[recipeId] !== qty){
+            const prevQty = (row.recipeContributions || {})[recipeId] || 0;
+            const manualExtra = row.quantity - prevQty;
+            row.quantity = Math.max(0, qty + manualExtra);
+            row.recipeContributions = { [recipeId]: qty };
+            changed = true;
+          }
+        });
+        return;
+      }
+
+      let row = items.find(i => i.itemId === itemId);
+      if(!row){
+        items.push({
+          id: crypto.randomUUID(), itemId,
+          quantity: Array.from(perRecipe.values()).reduce((a, b) => a + b, 0),
+          checked: false, recipeIds: Array.from(perRecipe.keys()),
+          recipeContributions: Object.fromEntries(perRecipe),
+        });
+        changed = true;
+        return;
+      }
+
+      let prevContributions = row.recipeContributions;
+      const isLegacyItem = !prevContributions;
+      if(isLegacyItem){
+        prevContributions = {};
+        (row.recipeIds || []).forEach(rid => {
+          if(perRecipe.has(rid)) prevContributions[rid] = perRecipe.get(rid);
+        });
+      }
+
+      const newContributions = Object.fromEntries(perRecipe);
+      if(!isLegacyItem && JSON.stringify(prevContributions) === JSON.stringify(newContributions)) return;
+
+      const prevTotal = Object.values(prevContributions).reduce((a, b) => a + b, 0);
+      const newTotal = Array.from(perRecipe.values()).reduce((a, b) => a + b, 0);
+      const manualExtra = row.quantity - prevTotal;
+
+      row.quantity = Math.max(0, newTotal + manualExtra);
+      row.recipeContributions = newContributions;
+      row.recipeIds = Object.keys(newContributions);
+      changed = true;
+    });
+
+    // Drop stale per-recipe meat rows for a recipe that no longer uses that item — but
+    // never a manually-added row (those have no recipeIds at all).
+    for(let i = items.length - 1; i >= 0; i--){
+      const item = items[i];
+      const grocery = groceriesCache.find(g => g.id === item.itemId);
+      if(!grocery || !isMeatCategory(grocery)) continue;
+      const recipeIds = item.recipeIds || [];
+      if(recipeIds.length !== 1) continue;
+      const perRecipe = usage.get(item.itemId);
+      if(!perRecipe || !perRecipe.has(recipeIds[0])){
+        items.splice(i, 1);
+        changed = true;
+      }
+    }
+
+    return changed;
   }
 
   async function openGroceryListView(planId){
@@ -1722,17 +1941,13 @@
       `${formatDate(plan.fromDate)} – ${formatDate(plan.toDate)}`;
 
     let listDoc = await fetchGroceryList(planId);
-    const required = computeInitialGroceryItems(plan);
 
     if(!listDoc){
-      listDoc = await saveGroceryList(planId, required);
+      listDoc = await saveGroceryList(planId, computeInitialGroceryItems(plan));
     }else{
-      // Merge in anything newly required by the plan's recipes since the list was last
-      // generated — without touching items you've already checked off or hand-edited.
-      const existingIds = new Set(listDoc.items.map(i => i.itemId));
-      const missing = required.filter(r => !existingIds.has(r.itemId));
-      if(missing.length > 0){
-        listDoc = await saveGroceryList(planId, [...listDoc.items, ...missing]);
+      const usage = computeRequiredGroceryUsage(plan);
+      if(syncGroceryListWithPlan(listDoc.items, usage)){
+        listDoc = await saveGroceryList(planId, listDoc.items);
       }
     }
 
@@ -1740,23 +1955,26 @@
     renderGroceryListItems();
   }
 
-  async function persistGroceryList(){
-    const saved = await saveGroceryList(groceryListCache.planId, groceryListCache.items);
-    if(saved) groceryListCache = saved;
+  // Fire-and-forget: the UI already reflects the change (optimistic update), this just
+  // syncs it to the backend in the background so interactions feel instant.
+  function persistGroceryList(){
+    saveGroceryList(groceryListCache.planId, groceryListCache.items);
   }
 
   const GLIST_CATEGORY_GROUPS = [
     { key: 'market', label: 'Market' },
     { key: 'food', label: 'Grocery Store · Food' },
+    { key: 'meat', label: 'Grocery Store · Meat' },
     { key: 'toiletries', label: 'Grocery Store · Toiletries' },
   ];
 
   function glistCategoryKey(g){
     if(g.category === 'market') return 'market';
+    if(g.subCategory === 'meat') return 'meat';
     return g.subCategory === 'toiletries' ? 'toiletries' : 'food';
   }
 
-  let glistDragItemId = null;
+  let glistDragRowId = null;
 
   function renderGroceryListItems(){
     const container = document.getElementById('groceryListContainer');
@@ -1784,16 +2002,17 @@
       if(!Number(grocery.price)) zeroPriceNames.push(displayName(grocery));
       const usedNames = entry.recipeIds.map(recipeName).filter(Boolean);
       return `
-        <div class="glist-row ${entry.checked ? 'checked' : ''}" draggable="true" data-item="${entry.itemId}">
+        <div class="glist-row ${entry.checked ? 'checked' : ''}" data-row="${entry.id}">
           <div class="glist-main">
-            <input type="checkbox" class="glist-check" data-item="${entry.itemId}" ${entry.checked ? 'checked' : ''}>
+            <span class="glist-drag-handle" draggable="true" title="Drag to reorder">☰</span>
+            <input type="checkbox" class="glist-check" data-row="${entry.id}" ${entry.checked ? 'checked' : ''}>
             <div class="glist-name">${escapeHtml(displayName(grocery))}${isKg ? ' <span class="picker-sub">(kg)</span>' : ''}</div>
-            <input type="number" class="qty-input glist-qty" min="0" step="${isKg ? '0.1' : '1'}" value="${entry.quantity}" data-item="${entry.itemId}">
+            <input type="number" class="qty-input glist-qty" min="0" step="${isKg ? '0.1' : '1'}" value="${entry.quantity}" data-row="${entry.id}">
             <div class="glist-price">₱${lineTotal.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
-            <button type="button" class="glist-remove" title="Remove item" data-item="${entry.itemId}">✕</button>
+            <button type="button" class="glist-remove" title="Remove item" data-row="${entry.id}">✕</button>
           </div>
-          <button type="button" class="glist-used-toggle" data-item="${entry.itemId}">Used in ${usedNames.length} recipe${usedNames.length === 1 ? '' : 's'} ▾</button>
-          <div class="glist-used-list" id="glist-used-${entry.itemId}" hidden>
+          <button type="button" class="glist-used-toggle" data-row="${entry.id}">Used in ${usedNames.length} recipe${usedNames.length === 1 ? '' : 's'} ▾</button>
+          <div class="glist-used-list" id="glist-used-${entry.id}" hidden>
             ${usedNames.length
               ? usedNames.map(n => `<span class="meal-chip">${escapeHtml(n)}</span>`).join('')
               : '<span class="picker-sub">Not used in any recipe — added manually.</span>'}
@@ -1833,75 +2052,93 @@
       `<div class="glist-total">Total <strong>₱${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></div>`;
 
     container.querySelectorAll('.glist-check').forEach(cb => {
-      cb.addEventListener('change', async () => {
-        const entry = groceryListCache.items.find(i => i.itemId === cb.dataset.item);
+      cb.addEventListener('change', () => {
+        const entry = groceryListCache.items.find(i => i.id === cb.dataset.row);
         if(!entry) return;
         entry.checked = cb.checked;
-        await persistGroceryList();
         renderGroceryListItems();
+        persistGroceryList();
       });
     });
 
     container.querySelectorAll('.glist-qty').forEach(input => {
-      input.addEventListener('change', async () => {
-        const entry = groceryListCache.items.find(i => i.itemId === input.dataset.item);
+      input.addEventListener('change', () => {
+        const entry = groceryListCache.items.find(i => i.id === input.dataset.row);
         if(!entry) return;
         entry.quantity = Math.max(0, Number(input.value) || 0);
-        await persistGroceryList();
         renderGroceryListItems();
+        persistGroceryList();
       });
     });
 
     container.querySelectorAll('.glist-remove').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        groceryListCache.items = groceryListCache.items.filter(i => i.itemId !== btn.dataset.item);
-        await persistGroceryList();
+      btn.addEventListener('click', () => {
+        groceryListCache.items = groceryListCache.items.filter(i => i.id !== btn.dataset.row);
         renderGroceryListItems();
+        persistGroceryList();
       });
     });
 
     container.querySelectorAll('.glist-used-toggle').forEach(btn => {
       btn.addEventListener('click', () => {
-        const panel = document.getElementById('glist-used-' + btn.dataset.item);
+        const panel = document.getElementById('glist-used-' + btn.dataset.row);
         panel.hidden = !panel.hidden;
       });
     });
 
-    // Drag-and-drop reordering — only within the same category section.
-    container.querySelectorAll('.glist-row').forEach(row => {
-      row.addEventListener('dragstart', () => {
-        glistDragItemId = row.dataset.item;
-        row.classList.add('dragging');
-      });
-      row.addEventListener('dragend', () => {
-        row.classList.remove('dragging');
-        glistDragItemId = null;
-      });
-      row.addEventListener('dragover', (e) => {
-        if(!glistDragItemId || glistDragItemId === row.dataset.item) return;
-        const sourceGrocery = groceriesCache.find(g => g.id === glistDragItemId);
-        const targetGrocery = groceriesCache.find(g => g.id === row.dataset.item);
-        if(!sourceGrocery || !targetGrocery || glistCategoryKey(sourceGrocery) !== glistCategoryKey(targetGrocery)) return;
-        e.preventDefault();
-      });
-      row.addEventListener('drop', async (e) => {
-        e.preventDefault();
-        const targetId = row.dataset.item;
-        if(!glistDragItemId || glistDragItemId === targetId) return;
+    // Drag-and-drop reordering — grabbing the ☰ handle drags the whole row; only
+    // allowed within the same category section.
+    function categoryOfRow(rowId){
+      const entry = groceryListCache.items.find(i => i.id === rowId);
+      const grocery = entry && groceriesCache.find(g => g.id === entry.itemId);
+      return grocery ? glistCategoryKey(grocery) : null;
+    }
+    function canDropOn(targetRowId){
+      if(!glistDragRowId || glistDragRowId === targetRowId) return false;
+      const sourceCategory = categoryOfRow(glistDragRowId);
+      const targetCategory = categoryOfRow(targetRowId);
+      return !!sourceCategory && sourceCategory === targetCategory;
+    }
 
-        const sourceGrocery = groceriesCache.find(g => g.id === glistDragItemId);
-        const targetGrocery = groceriesCache.find(g => g.id === targetId);
-        if(!sourceGrocery || !targetGrocery || glistCategoryKey(sourceGrocery) !== glistCategoryKey(targetGrocery)) return;
+    container.querySelectorAll('.glist-drag-handle').forEach(handle => {
+      const row = handle.closest('.glist-row');
+      handle.addEventListener('dragstart', (e) => {
+        glistDragRowId = row.dataset.row;
+        row.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', row.dataset.row);
+      });
+      handle.addEventListener('dragend', () => {
+        row.classList.remove('dragging');
+        glistDragRowId = null;
+        container.querySelectorAll('.glist-row.drag-over').forEach(r => r.classList.remove('drag-over'));
+      });
+    });
+
+    container.querySelectorAll('.glist-row').forEach(row => {
+      row.addEventListener('dragover', (e) => {
+        if(!canDropOn(row.dataset.row)) return;
+        e.preventDefault();
+      });
+      row.addEventListener('dragenter', () => {
+        if(canDropOn(row.dataset.row)) row.classList.add('drag-over');
+      });
+      row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
+      row.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const targetRowId = row.dataset.row;
+        row.classList.remove('drag-over');
+        if(!canDropOn(targetRowId)) return;
 
         const list = groceryListCache.items;
-        const fromIdx = list.findIndex(i => i.itemId === glistDragItemId);
+        const fromIdx = list.findIndex(i => i.id === glistDragRowId);
         if(fromIdx === -1) return;
         const [moved] = list.splice(fromIdx, 1);
-        const toIdx = list.findIndex(i => i.itemId === targetId);
+        const toIdx = list.findIndex(i => i.id === targetRowId);
         list.splice(toIdx === -1 ? list.length : toIdx, 0, moved);
 
-        await persistGroceryList();
         renderGroceryListItems();
+        persistGroceryList();
       });
     });
   }
@@ -1967,14 +2204,14 @@
   document.getElementById('cancelAddGlistBtn').addEventListener('click', closeAddGlistModal);
   addGlistOverlay.addEventListener('click', (e) => { if(e.target === addGlistOverlay) closeAddGlistModal(); });
 
-  document.getElementById('saveAddGlistBtn').addEventListener('click', async () => {
+  document.getElementById('saveAddGlistBtn').addEventListener('click', () => {
     const ids = Array.from(addGlistCheckedIds);
     if(ids.length > 0){
       ids.forEach(id => {
-        groceryListCache.items.push({ itemId: id, quantity: 1, checked: false, recipeIds: [] });
+        groceryListCache.items.push({ id: crypto.randomUUID(), itemId: id, quantity: 1, checked: false, recipeIds: [], recipeContributions: {} });
       });
-      await persistGroceryList();
       renderGroceryListItems();
+      persistGroceryList();
     }
     closeAddGlistModal();
   });
