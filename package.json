@@ -3,6 +3,10 @@
   "private": true,
   "version": "1.0.0",
   "dependencies": {
+    "dotenv": "^18.0.4",
     "mongodb": "^6.10.0"
+  },
+  "devDependencies": {
+    "vercel": "^61.0.0"
   }
 }

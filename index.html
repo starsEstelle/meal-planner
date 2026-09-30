@@ -25,8 +25,12 @@
   }
 
   *{box-sizing:border-box;}
+  html, body{height:100%;}
   body{
     margin:0;
+    display:flex;
+    flex-direction:column;
+    min-height:100vh;
     font-family:'Nunito', sans-serif;
     color:var(--text);
     background:var(--cream);
@@ -81,7 +85,7 @@
   }
 
   /* ---------- MAIN ---------- */
-  main{max-width:960px; margin:0 auto; padding:40px 24px 100px;}
+  main{flex:1 0 auto; width:100%; max-width:960px; margin:0 auto; padding:40px 24px 100px;}
   .view{display:none;}
   .view.active{display:block;}
   .page-head{
@@ -199,6 +203,154 @@
   .modal-actions button{flex:1;}
   .field-error{color:var(--berry); font-size:0.8rem; margin-top:6px; display:none;}
 
+  /* ---------- SEARCH ---------- */
+  .search-bar{
+    display:block; width:100%; margin-bottom:22px; padding:12px 16px; border-radius:999px;
+    border:1.5px solid #E9DFD2; font-family:inherit; font-size:0.9rem; background:var(--white); color:var(--text);
+  }
+  .search-bar:focus{outline:none; border-color:var(--sage);}
+
+  /* ---------- ITEM CARDS (recipes & groceries) ---------- */
+  .item-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:20px;}
+  .item-card{
+    background:var(--white); border-radius:var(--radius-md); box-shadow:var(--shadow);
+    overflow:hidden; display:flex; flex-direction:column; position:relative;
+  }
+  .item-thumb{width:100%; aspect-ratio:4/3; object-fit:cover; background:var(--cream); display:block;}
+  .item-thumb-placeholder{
+    width:100%; aspect-ratio:4/3; background:var(--cream); display:flex;
+    align-items:center; justify-content:center; font-size:2rem;
+  }
+  .item-body{padding:16px 18px 18px;}
+  .item-name{font-weight:700; font-size:1.02rem; margin:0 0 8px;}
+  .item-actions{position:absolute; top:10px; right:10px; display:flex; gap:6px;}
+  .item-edit, .item-delete{
+    background:rgba(255,255,255,0.9); border:none;
+    color:var(--text-soft); cursor:pointer; font-size:0.9rem; width:28px; height:28px;
+    border-radius:50%; line-height:1; box-shadow:0 2px 8px rgba(0,0,0,0.12);
+  }
+  .item-edit:hover{color:var(--sage-dark);}
+  .item-delete:hover{color:var(--berry);}
+
+  .recipe-ingredients{list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:6px;}
+  .recipe-ingredients li{
+    background:var(--cream); color:var(--text-soft); font-size:0.75rem; font-weight:700;
+    padding:4px 10px; border-radius:999px;
+  }
+
+  .grocery-meta{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .category-badge{
+    font-size:0.72rem; font-weight:800; padding:3px 10px; border-radius:999px;
+    text-transform:uppercase; letter-spacing:0.4px;
+  }
+  .category-badge.category-market{background:#E4F0E0; color:var(--sage-dark);}
+  .category-badge.category-grocery{background:#FCE6DC; color:var(--peach-dark);}
+  .grocery-price{font-weight:700; color:var(--berry); font-family:'Quicksand';}
+
+  .ingredient-row{display:flex; gap:8px; margin-bottom:8px;}
+  .ingredient-row input{flex:1;}
+  .remove-ingredient{
+    background:none; border:none; color:var(--text-soft); cursor:pointer; font-size:1rem;
+    padding:0 6px; border-radius:8px;
+  }
+  .remove-ingredient:hover{color:var(--berry);}
+  .add-ingredient-btn{
+    background:none; border:1.5px dashed #E9DFD2; color:var(--text-soft); cursor:pointer;
+    font-weight:700; font-size:0.85rem; padding:9px 14px; border-radius:12px; width:100%; margin-top:2px;
+  }
+  .add-ingredient-btn:hover{border-color:var(--sage); color:var(--sage-dark);}
+
+  select{
+    width:100%; padding:12px 14px; border-radius:12px; border:1.5px solid #E9DFD2;
+    font-family:inherit; font-size:0.95rem; background:var(--white); color:var(--text);
+  }
+  select:focus{outline:none; border-color:var(--sage);}
+
+  .thumb-upload{display:flex; align-items:center; gap:14px;}
+  .thumb-preview{
+    width:64px; height:64px; border-radius:14px; background:var(--cream); object-fit:cover;
+    flex-shrink:0; display:none;
+  }
+  .thumb-preview.show{display:block;}
+  .thumb-upload input[type="file"]{font-size:0.82rem; color:var(--text-soft);}
+
+  /* ---------- MEAL CELL (recipe chips) ---------- */
+  .meal-cell{display:flex; flex-wrap:wrap; align-items:center; gap:6px; min-width:120px; padding:4px;}
+  .meal-chip{
+    background:var(--cream); color:var(--text); font-size:0.76rem; font-weight:700;
+    padding:5px 10px; border-radius:999px; white-space:nowrap;
+  }
+  .meal-add-btn{
+    width:26px; height:26px; border-radius:50%; border:1.5px dashed #D8CFC4; background:none;
+    color:var(--text-soft); font-size:1rem; cursor:pointer; line-height:1; flex-shrink:0;
+  }
+  .meal-add-btn:hover{border-color:var(--sage); color:var(--sage-dark); background:var(--cream);}
+
+  /* ---------- PICKER (recipe selection & ingredient selection) ---------- */
+  .picker-list{max-height:340px; overflow-y:auto; margin:0 -6px 4px; padding:0 6px;}
+  .picker-item{
+    display:flex; align-items:center; gap:12px; padding:10px 6px; border-radius:12px; cursor:pointer;
+  }
+  .picker-item:hover{background:var(--cream);}
+  .picker-item input{width:18px; height:18px; flex-shrink:0;}
+  .picker-thumb{width:38px; height:38px; border-radius:10px; object-fit:cover; background:var(--cream); flex-shrink:0;}
+  .picker-thumb-placeholder{
+    width:38px; height:38px; border-radius:10px; background:var(--cream); flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:1.1rem;
+  }
+  .picker-name{font-weight:700; font-size:0.9rem;}
+  .picker-sub{font-size:0.75rem; color:var(--text-soft); margin-top:2px;}
+  .picker-empty{text-align:center; padding:30px 10px; color:var(--text-soft); font-size:0.9rem;}
+
+  /* ---------- QUANTITIES ---------- */
+  .qty-recipe-group{margin-bottom:18px;}
+  .qty-recipe-group:last-child{margin-bottom:0;}
+  .qty-recipe-name{font-weight:700; font-size:0.92rem; margin-bottom:8px; color:var(--sage-dark);}
+  .qty-row{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:8px 0; border-bottom:1px solid #F2ECE4;
+  }
+  .qty-row:last-child{border-bottom:none;}
+  .qty-input{
+    width:70px; text-align:center; padding:8px 6px; border-radius:10px; border:1.5px solid #E9DFD2;
+    font-family:inherit; font-size:0.9rem; background:var(--white); color:var(--text);
+  }
+  .qty-input:focus{outline:none; border-color:var(--sage);}
+
+  /* ---------- GROCERY LIST (per meal plan) ---------- */
+  .glist-container{
+    background:var(--white); border-radius:var(--radius-md); padding:6px 22px; box-shadow:var(--shadow);
+  }
+  .glist-row{padding:14px 0; border-bottom:1px solid #F2ECE4;}
+  .glist-row:last-child{border-bottom:none;}
+  .glist-main{display:flex; align-items:center; gap:12px;}
+  .glist-check{width:20px; height:20px; flex-shrink:0;}
+  .glist-thumb{width:40px; height:40px; border-radius:10px; object-fit:cover; background:var(--cream); flex-shrink:0;}
+  .glist-thumb-placeholder{
+    width:40px; height:40px; border-radius:10px; background:var(--cream); flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:1.1rem;
+  }
+  .glist-name{flex:1; font-weight:700; font-size:0.92rem;}
+  .glist-price{font-weight:700; color:var(--berry); font-family:'Quicksand'; min-width:78px; text-align:right;}
+  .glist-remove{
+    background:none; border:none; color:var(--text-soft); cursor:pointer; font-size:1rem;
+    padding:4px 6px; border-radius:8px; flex-shrink:0;
+  }
+  .glist-remove:hover{color:var(--berry);}
+  .glist-row.checked .glist-name{color:var(--text-soft); text-decoration:line-through;}
+  .glist-row.checked{opacity:0.6;}
+  .glist-used-toggle{
+    background:none; border:none; color:var(--text-soft); font-size:0.78rem; font-weight:700;
+    cursor:pointer; padding:6px 0 0 52px;
+  }
+  .glist-used-toggle:hover{color:var(--sage-dark);}
+  .glist-used-list{padding:8px 0 0 52px; display:flex; flex-wrap:wrap; gap:6px;}
+  .glist-total{
+    display:flex; justify-content:flex-end; align-items:baseline; gap:10px;
+    padding:18px 4px 0; font-size:1rem; font-weight:700;
+  }
+  .glist-total strong{font-size:1.3rem; font-family:'Quicksand'; color:var(--berry);}
+
   footer{padding:40px 24px 30px; border-top:1px solid #F0E8DC; text-align:center;}
   footer p{color:var(--text-soft); font-size:0.85rem; margin:8px 0 0;}
 </style>
@@ -228,27 +380,38 @@
   </section>
 
   <section class="view" id="view-recipes">
-    <div class="page-head"><h1>Recipes</h1></div>
-    <div class="empty-state">
-      <div class="big">🍳</div>
-      <h3>Your recipe box is empty</h3>
-      <p>Recipes you save will show up here.</p>
+    <div class="page-head">
+      <h1>Recipes</h1>
+      <button class="nav-add" id="openRecipeModalBtn">+ Add recipe</button>
     </div>
+    <input type="text" class="search-bar" id="recipeSearch" placeholder="Search recipes…">
+    <div id="recipeContainer">Loading…</div>
   </section>
 
   <section class="view" id="view-groceries">
-    <div class="page-head"><h1>Groceries</h1></div>
-    <div class="empty-state">
-      <div class="big">🛒</div>
-      <h3>No grocery list yet</h3>
-      <p>Add a meal plan and its grocery list will show up here.</p>
+    <div class="page-head">
+      <h1>Groceries</h1>
+      <button class="nav-add" id="openGroceryModalBtn">+ Add item</button>
     </div>
+    <input type="text" class="search-bar" id="grocerySearch" placeholder="Search groceries…">
+    <div id="groceryContainer">Loading…</div>
+  </section>
+
+  <section class="view" id="view-grocery-list">
+    <button class="btn-secondary" id="backToPlansBtn" style="margin-bottom:16px;">← Back to meal plans</button>
+    <div class="page-head">
+      <div>
+        <h1>Grocery list</h1>
+        <div class="plan-sub" id="groceryListSubtitle"></div>
+      </div>
+      <button class="nav-add" id="openAddGlistItemBtn">+ Add item</button>
+    </div>
+    <div id="groceryListContainer">Loading…</div>
   </section>
 </main>
 
 <footer>
   <a href="#" class="logo">🍽️ Meal Planner</a>
-  <p><button id="openSettingsBtn" style="background:none; border:none; color:var(--sage-dark); font-weight:700; cursor:pointer; font-size:0.85rem; padding:0;">⚙ Storage settings</button></p>
 </footer>
 
 <div class="modal-overlay" id="modalOverlay">
@@ -299,6 +462,112 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="recipeModalOverlay">
+  <div class="modal">
+    <h2 id="recipeModalTitle">New recipe</h2>
+    <p class="modal-sub">Add its name and pick its ingredients from your groceries. A thumbnail is optional.</p>
+    <form id="recipeForm">
+      <div class="field">
+        <label for="recipeName">Recipe name</label>
+        <input type="text" id="recipeName" placeholder="e.g. Chicken Adobo" required>
+      </div>
+      <div class="field">
+        <label>Ingredients</label>
+        <input type="text" class="search-bar" id="ingredientSearch" placeholder="Search groceries…" style="margin-bottom:10px;">
+        <div class="picker-list" id="ingredientPickerList"></div>
+      </div>
+      <div class="field-error" id="recipeError">Add a name and at least one ingredient.</div>
+      <div class="field">
+        <label>Thumbnail (optional)</label>
+        <div class="thumb-upload">
+          <img class="thumb-preview" id="thumbPreview" alt="">
+          <input type="file" id="thumbInput" accept="image/*">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="cancelRecipeModalBtn">Cancel</button>
+        <button type="submit" class="btn-primary" id="recipeSubmitBtn">Save recipe</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="groceryModalOverlay">
+  <div class="modal">
+    <h2 id="groceryModalTitle">New grocery item</h2>
+    <p class="modal-sub">Add its name, category, and price. A thumbnail is optional.</p>
+    <form id="groceryForm">
+      <div class="field">
+        <label for="groceryName">Item name</label>
+        <input type="text" id="groceryName" placeholder="e.g. Chicken breast" required>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="groceryCategory">Category</label>
+          <select id="groceryCategory">
+            <option value="market">Market</option>
+            <option value="grocery">Grocery Store</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="groceryPrice">Price</label>
+          <div class="peso-input">
+            <span>₱</span>
+            <input type="number" id="groceryPrice" min="0" step="0.01" placeholder="0.00" required>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Thumbnail (optional)</label>
+        <div class="thumb-upload">
+          <img class="thumb-preview" id="groceryThumbPreview" alt="">
+          <input type="file" id="groceryThumbInput" accept="image/*">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="cancelGroceryModalBtn">Cancel</button>
+        <button type="submit" class="btn-primary" id="grocerySubmitBtn">Save item</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="pickerOverlay">
+  <div class="modal">
+    <h2 id="pickerTitle">Choose recipes</h2>
+    <input type="text" class="search-bar" id="pickerSearch" placeholder="Search recipes…" style="margin-bottom:10px;">
+    <div class="picker-list" id="pickerList"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" id="cancelPickerBtn">Cancel</button>
+      <button type="button" class="btn-primary" id="nextPickerBtn">Next</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="quantitiesOverlay">
+  <div class="modal">
+    <h2>Quantities</h2>
+    <p class="modal-sub">How much of each ingredient? Set to 0 to skip it this time.</p>
+    <div id="quantitiesList"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" id="backQuantitiesBtn">Back</button>
+      <button type="button" class="btn-primary" id="saveQuantitiesBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="addGlistItemOverlay">
+  <div class="modal">
+    <h2>Add items</h2>
+    <input type="text" class="search-bar" id="addGlistSearch" placeholder="Search groceries…" style="margin-bottom:10px;">
+    <div class="picker-list" id="addGlistPickerList"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" id="cancelAddGlistBtn">Cancel</button>
+      <button type="button" class="btn-primary" id="saveAddGlistBtn">Add</button>
+    </div>
+  </div>
+</div>
+
 <script>
   // Default storage: the /api/plans serverless function deployed alongside this site,
   // backed by MongoDB Atlas (see api/plans.js).
@@ -317,14 +586,14 @@
     return String(str).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   }
 
-  // ---- Storage layer: everything lives in MongoDB, via the /api/plans function ----
-  async function fetchPlans(){
+  // ---- Storage layer: everything lives in MongoDB, via the /api/plans and /api/recipes functions ----
+  async function fetchJson(url){
     try{
-      const res = await fetch(getStorageUrl());
+      const res = await fetch(url);
       if(!res.ok) throw new Error('Bad response: ' + res.status);
-      const plans = await res.json();
+      const data = await res.json();
       setSyncStatus('connected');
-      return plans;
+      return data;
     }catch(err){
       console.warn('Could not reach storage', err);
       setSyncStatus('error');
@@ -332,17 +601,17 @@
     }
   }
 
-  async function postAction(body){
+  async function postJson(url, body){
     try{
-      const res = await fetch(getStorageUrl(), {
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
       if(!res.ok) throw new Error('Bad response: ' + res.status);
-      const plans = await res.json();
+      const data = await res.json();
       setSyncStatus('connected');
-      return plans;
+      return data;
     }catch(err){
       console.warn('Could not save to storage', err);
       setSyncStatus('error');
@@ -351,10 +620,46 @@
     }
   }
 
-  function createPlan(plan){ return postAction({ action: 'create', plan }); }
-  function deletePlan(id){ return postAction({ action: 'delete', id }); }
-  function updateMeal(planId, date, mealType, value){
-    return postAction({ action: 'updateMeal', id: planId, date, mealType, value });
+  function fetchPlans(){ return fetchJson(getStorageUrl()); }
+  function createPlan(plan){ return postJson(getStorageUrl(), { action: 'create', plan }); }
+  function deletePlan(id){ return postJson(getStorageUrl(), { action: 'delete', id }); }
+  // entries: [{ recipeId, quantities: { [groceryItemId]: number } }, ...]
+  function updateMealEntries(planId, date, mealType, entries){
+    return postJson(getStorageUrl(), { action: 'updateMeal', id: planId, date, mealType, entries });
+  }
+
+  // Recipes and groceries live at sibling endpoints of the configured plans storage URL.
+  function getRecipesUrl(){ return getStorageUrl().replace(/plans(\/?)$/i, 'recipes$1'); }
+  function fetchRecipes(){ return fetchJson(getRecipesUrl()); }
+  function createRecipe(recipe){ return postJson(getRecipesUrl(), { action: 'create', recipe }); }
+  function updateRecipe(recipe){ return postJson(getRecipesUrl(), { action: 'update', recipe }); }
+  function deleteRecipe(id){ return postJson(getRecipesUrl(), { action: 'delete', id }); }
+
+  function getGroceriesUrl(){ return getStorageUrl().replace(/plans(\/?)$/i, 'groceries$1'); }
+  function fetchGroceries(){ return fetchJson(getGroceriesUrl()); }
+  function createGrocery(item){ return postJson(getGroceriesUrl(), { action: 'create', item }); }
+  function updateGrocery(item){ return postJson(getGroceriesUrl(), { action: 'update', item }); }
+  function deleteGrocery(id){ return postJson(getGroceriesUrl(), { action: 'delete', id }); }
+
+  // A plan's grocery list (checklist + quantities + manual additions) persists server-side,
+  // keyed by planId, so it survives a refresh and can be opened from a shared URL.
+  function getGroceryListsUrl(){ return getStorageUrl().replace(/plans(\/?)$/i, 'grocery-lists$1'); }
+  async function fetchGroceryList(planId){
+    const data = await fetchJson(`${getGroceryListsUrl()}?planId=${encodeURIComponent(planId)}`);
+    return (data && Array.isArray(data.items)) ? data : null;
+  }
+  function saveGroceryList(planId, items){
+    return postJson(getGroceryListsUrl(), { action: 'save', planId, items });
+  }
+
+  let recipesCache = [];
+  let groceriesCache = [];
+  let plansCache = [];
+  let groceryListCache = null; // { planId, items: [{ itemId, quantity, checked, recipeIds }] }
+
+  function groceryName(id){
+    const item = groceriesCache.find(g => g.id === id);
+    return item ? item.name : null;
   }
 
   function setSyncStatus(state){
@@ -374,26 +679,43 @@
     return d.toLocaleDateString('en-US', { weekday:'short', day:'numeric' });
   }
 
+  function toIsoDate(d){
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
   function dateRange(fromDate, toDate){
     const dates = [];
     const cur = new Date(fromDate + 'T00:00:00');
     const end = new Date(toDate + 'T00:00:00');
     while(cur <= end){
-      dates.push(cur.toISOString().slice(0,10));
+      dates.push(toIsoDate(cur));
       cur.setDate(cur.getDate() + 1);
     }
     return dates;
   }
 
+  function recipeName(id){
+    const recipe = recipesCache.find(r => r.id === id);
+    return recipe ? recipe.name : null;
+  }
+
+  function mealCellHtml(plan, date, type){
+    const entries = ((plan.meals || {})[date] || {})[type] || [];
+    const chips = entries.map(entry => recipeName(entry.recipeId)).filter(Boolean)
+      .map(name => `<span class="meal-chip">${escapeHtml(name)}</span>`).join('');
+    return `<div class="meal-cell">
+      ${chips}
+      <button type="button" class="meal-add-btn" title="Add recipes"
+        data-plan="${plan.id}" data-date="${date}" data-type="${type}">+</button>
+    </div>`;
+  }
+
   function mealTableHtml(plan){
     const dates = dateRange(plan.fromDate, plan.toDate);
-    const meals = plan.meals || {};
     const rows = MEAL_TYPES.map(type => `
       <tr>
         <th>${type[0].toUpperCase()}${type.slice(1)}</th>
-        ${dates.map(date => `<td><input class="meal-input" type="text" placeholder="—"
-          data-plan="${plan.id}" data-date="${date}" data-type="${type}"
-          value="${escapeHtml((meals[date] || {})[type] || '')}"></td>`).join('')}
+        ${dates.map(date => `<td>${mealCellHtml(plan, date, type)}</td>`).join('')}
       </tr>`).join('');
 
     return `
@@ -423,10 +745,13 @@
     }
     syncStatus.style.display = '';
 
-    const plans = (await fetchPlans()).sort((a,b) => b.createdAt - a.createdAt);
+    const [plans, recipes, groceries] = await Promise.all([fetchPlans(), fetchRecipes(), fetchGroceries()]);
+    recipesCache = recipes;
+    groceriesCache = groceries;
+    plansCache = plans.sort((a,b) => b.createdAt - a.createdAt);
     list.innerHTML = '';
 
-    if(plans.length === 0){
+    if(plansCache.length === 0){
       list.innerHTML = `
         <div class="empty-state">
           <div class="big">🍽️</div>
@@ -438,7 +763,7 @@
       return;
     }
 
-    plans.forEach((plan, i) => {
+    plansCache.forEach((plan, i) => {
       const days = Math.round((new Date(plan.toDate) - new Date(plan.fromDate)) / (1000*60*60*24)) + 1;
       const card = document.createElement('div');
       card.className = 'plan-card' + (i === 0 ? ' latest' : '');
@@ -460,6 +785,9 @@
           </div>
         </div>
         ${mealTableHtml(plan)}
+        <div style="margin-top:18px;">
+          <button class="btn-secondary view-grocery-list-btn" data-plan="${plan.id}">📋 View Grocery List</button>
+        </div>
       `;
       list.appendChild(card);
     });
@@ -472,14 +800,14 @@
       });
     });
 
-    list.querySelectorAll('.meal-input').forEach(input => {
-      input.addEventListener('change', async () => {
-        const { plan, date, type } = input.dataset;
-        input.disabled = true;
-        await updateMeal(plan, date, type, input.value);
-        input.disabled = false;
-        input.focus();
+    list.querySelectorAll('.meal-add-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        openPicker(btn.dataset.plan, btn.dataset.date, btn.dataset.type);
       });
+    });
+
+    list.querySelectorAll('.view-grocery-list-btn').forEach(btn => {
+      btn.addEventListener('click', () => openGroceryListView(btn.dataset.plan));
     });
   }
 
@@ -487,11 +815,15 @@
   const navLinks = document.getElementById('navLinks');
   document.querySelectorAll('.nav-links a[data-view]').forEach(link => {
     link.addEventListener('click', () => {
+      clearGroceryListHash();
       document.querySelectorAll('.nav-links a[data-view]').forEach(l => l.classList.remove('active'));
       link.classList.add('active');
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
       document.getElementById('view-' + link.dataset.view).classList.add('active');
       navLinks.classList.remove('open');
+      if(link.dataset.view === 'recipes') renderRecipes();
+      if(link.dataset.view === 'plans') renderPlans();
+      if(link.dataset.view === 'groceries') renderGroceries();
     });
   });
 
@@ -521,7 +853,16 @@
   document.getElementById('openModalBtn').addEventListener('click', maybeOpenPlanModal);
   document.getElementById('cancelModalBtn').addEventListener('click', closeModal);
   overlay.addEventListener('click', (e) => { if(e.target === overlay) closeModal(); });
-  document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeModal(); });
+  document.addEventListener('keydown', (e) => {
+    if(e.key !== 'Escape') return;
+    closeModal();
+    closeRecipeModal();
+    closeGroceryModal();
+    closePicker();
+    closeQuantities();
+    closeAddGlistModal();
+    settingsOverlay.classList.remove('open');
+  });
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -559,7 +900,6 @@
     settingsOverlay.classList.add('open');
   }
 
-  document.getElementById('openSettingsBtn').addEventListener('click', openSettingsModal);
   document.getElementById('cancelSettingsBtn').addEventListener('click', () => settingsOverlay.classList.remove('open'));
   settingsOverlay.addEventListener('click', (e) => { if(e.target === settingsOverlay) settingsOverlay.classList.remove('open'); });
 
@@ -570,7 +910,766 @@
     renderPlans();
   });
 
-  renderPlans();
+  // ---- Recipe picker (used from the meal plan grid) ----
+  const pickerOverlay = document.getElementById('pickerOverlay');
+  const pickerList = document.getElementById('pickerList');
+  const pickerSearch = document.getElementById('pickerSearch');
+  let pickerContext = null; // { planId, date, type }
+  let pickerCheckedIds = new Set();
+
+  function currentSelectedEntries(){
+    if(!pickerContext) return [];
+    const plan = plansCache.find(p => p.id === pickerContext.planId);
+    if(!plan) return [];
+    return ((plan.meals || {})[pickerContext.date] || {})[pickerContext.type] || [];
+  }
+
+  function renderPickerList(query = ''){
+    if(recipesCache.length === 0){
+      pickerList.innerHTML = `
+        <div class="picker-empty">
+          You haven't added any recipes yet.<br><br>
+          <button type="button" class="btn-primary" id="pickerGoToRecipesBtn">Go to Recipes</button>
+        </div>`;
+      document.getElementById('pickerGoToRecipesBtn').addEventListener('click', () => {
+        closePicker();
+        document.querySelector('.nav-links a[data-view="recipes"]').click();
+      });
+      return;
+    }
+
+    const q = query.trim().toLowerCase();
+    const filtered = recipesCache.filter(r => r.name.toLowerCase().includes(q));
+
+    pickerList.innerHTML = filtered.map(r => `
+      <label class="picker-item">
+        <input type="checkbox" value="${r.id}" ${pickerCheckedIds.has(r.id) ? 'checked' : ''}>
+        ${r.thumbnail
+          ? `<img class="picker-thumb" src="${r.thumbnail}" alt="">`
+          : `<div class="picker-thumb-placeholder">🍳</div>`}
+        <div>
+          <div class="picker-name">${escapeHtml(r.name)}</div>
+          <div class="picker-sub">${r.ingredientIds.map(groceryName).filter(Boolean).join(', ')}</div>
+        </div>
+      </label>`).join('');
+
+    pickerList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        if(cb.checked) pickerCheckedIds.add(cb.value);
+        else pickerCheckedIds.delete(cb.value);
+      });
+    });
+  }
+
+  function openPicker(planId, date, type){
+    pickerContext = { planId, date, type };
+    pickerCheckedIds = new Set(currentSelectedEntries().map(entry => entry.recipeId));
+    document.getElementById('pickerTitle').textContent =
+      `${type[0].toUpperCase()}${type.slice(1)} — ${formatDayHeader(date)}`;
+    pickerSearch.value = '';
+    renderPickerList();
+    pickerOverlay.classList.add('open');
+  }
+
+  function closePicker(){
+    pickerOverlay.classList.remove('open');
+    pickerContext = null;
+  }
+
+  pickerSearch.addEventListener('input', () => renderPickerList(pickerSearch.value));
+  document.getElementById('cancelPickerBtn').addEventListener('click', closePicker);
+  pickerOverlay.addEventListener('click', (e) => { if(e.target === pickerOverlay) closePicker(); });
+
+  document.getElementById('nextPickerBtn').addEventListener('click', async () => {
+    if(!pickerContext) return;
+    const ids = Array.from(pickerCheckedIds);
+
+    if(ids.length === 0){
+      const { planId, date, type } = pickerContext;
+      const nextBtn = document.getElementById('nextPickerBtn');
+      nextBtn.disabled = true;
+      await updateMealEntries(planId, date, type, []);
+      nextBtn.disabled = false;
+      closePicker();
+      renderPlans();
+      return;
+    }
+
+    openQuantities(ids);
+  });
+
+  // ---- Quantities (asked after picking recipes for a meal slot) ----
+  const quantitiesOverlay = document.getElementById('quantitiesOverlay');
+  const quantitiesList = document.getElementById('quantitiesList');
+  let quantitiesRecipeIds = [];
+
+  function openQuantities(recipeIds){
+    quantitiesRecipeIds = recipeIds;
+    const existingByRecipe = new Map(currentSelectedEntries().map(entry => [entry.recipeId, entry.quantities || {}]));
+
+    quantitiesList.innerHTML = recipeIds.map(rid => {
+      const recipe = recipesCache.find(r => r.id === rid);
+      if(!recipe) return '';
+      const prevQuantities = existingByRecipe.get(rid) || {};
+      const rows = recipe.ingredientIds.map(gid => {
+        const grocery = groceriesCache.find(g => g.id === gid);
+        if(!grocery) return '';
+        const qty = prevQuantities[gid] === undefined ? 1 : prevQuantities[gid];
+        return `<div class="qty-row">
+          <span>${escapeHtml(grocery.name)}</span>
+          <input type="number" class="qty-input" min="0" step="1" value="${qty}"
+            data-recipe="${rid}" data-grocery="${gid}">
+        </div>`;
+      }).join('');
+      return `<div class="qty-recipe-group">
+        <div class="qty-recipe-name">${escapeHtml(recipe.name)}</div>
+        ${rows}
+      </div>`;
+    }).join('');
+
+    pickerOverlay.classList.remove('open');
+    quantitiesOverlay.classList.add('open');
+  }
+
+  function closeQuantities(){
+    quantitiesOverlay.classList.remove('open');
+  }
+
+  document.getElementById('backQuantitiesBtn').addEventListener('click', () => {
+    closeQuantities();
+    pickerOverlay.classList.add('open');
+  });
+  quantitiesOverlay.addEventListener('click', (e) => { if(e.target === quantitiesOverlay) closeQuantities(); });
+
+  document.getElementById('saveQuantitiesBtn').addEventListener('click', async () => {
+    if(!pickerContext) return;
+    const { planId, date, type } = pickerContext;
+    const entries = quantitiesRecipeIds.map(rid => {
+      const quantities = {};
+      quantitiesList.querySelectorAll(`input[data-recipe="${rid}"]`).forEach(input => {
+        quantities[input.dataset.grocery] = Number(input.value) || 0;
+      });
+      return { recipeId: rid, quantities };
+    });
+
+    const saveBtn = document.getElementById('saveQuantitiesBtn');
+    saveBtn.disabled = true;
+    await updateMealEntries(planId, date, type, entries);
+    saveBtn.disabled = false;
+    closeQuantities();
+    closePicker();
+    renderPlans();
+  });
+
+  // Downscales the chosen image client-side and hands back a small JPEG data URL,
+  // since thumbnails are stored inline on the document rather than in a file store.
+  function resizeImageFile(file, maxDim = 480, quality = 0.82){
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let w = img.width, h = img.height;
+          if(w >= h && w > maxDim){ h = Math.round(h * maxDim / w); w = maxDim; }
+          else if(h > w && h > maxDim){ w = Math.round(w * maxDim / h); h = maxDim; }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // ---- Recipes page ----
+  const recipeSearch = document.getElementById('recipeSearch');
+
+  async function renderRecipes(){
+    const container = document.getElementById('recipeContainer');
+
+    if(!getStorageUrl()){
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="big">🔌</div>
+          <h3>Storage isn't set up yet</h3>
+          <p>Connect a storage backend to start saving recipes.</p>
+        </div>`;
+      return;
+    }
+
+    const [recipes, groceries] = await Promise.all([fetchRecipes(), fetchGroceries()]);
+    recipesCache = recipes;
+    groceriesCache = groceries;
+    renderRecipeGrid();
+  }
+
+  function renderRecipeGrid(){
+    const container = document.getElementById('recipeContainer');
+
+    if(recipesCache.length === 0){
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="big">🍳</div>
+          <h3>Your recipe box is empty</h3>
+          <p>Recipes you save will show up here.</p>
+          <button class="btn-primary" id="emptyAddRecipeBtn">+ Add recipe</button>
+        </div>`;
+      document.getElementById('emptyAddRecipeBtn').addEventListener('click', () => openRecipeModal());
+      return;
+    }
+
+    const query = recipeSearch.value.trim().toLowerCase();
+    const filtered = recipesCache.filter(r => r.name.toLowerCase().includes(query));
+
+    if(filtered.length === 0){
+      container.innerHTML = `<div class="empty-state"><p>No recipes match your search.</p></div>`;
+      return;
+    }
+
+    container.innerHTML = `<div class="item-grid">${filtered.map(r => `
+      <div class="item-card">
+        <div class="item-actions">
+          <button class="item-edit" title="Edit recipe" data-id="${r.id}">✎</button>
+          <button class="item-delete" title="Delete recipe" data-id="${r.id}">✕</button>
+        </div>
+        ${r.thumbnail
+          ? `<img class="item-thumb" src="${r.thumbnail}" alt="${escapeHtml(r.name)}">`
+          : `<div class="item-thumb-placeholder">🍳</div>`}
+        <div class="item-body">
+          <div class="item-name">${escapeHtml(r.name)}</div>
+          <ul class="recipe-ingredients">${r.ingredientIds.map(groceryName).filter(Boolean)
+            .map(name => `<li>${escapeHtml(name)}</li>`).join('')}</ul>
+        </div>
+      </div>`).join('')}</div>`;
+
+    container.querySelectorAll('.item-edit').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const recipe = recipesCache.find(r => r.id === btn.dataset.id);
+        if(recipe) openRecipeModal(recipe);
+      });
+    });
+    container.querySelectorAll('.item-delete').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        await deleteRecipe(btn.dataset.id);
+        renderRecipes();
+      });
+    });
+  }
+
+  recipeSearch.addEventListener('input', renderRecipeGrid);
+
+  // ---- Add/edit recipe modal ----
+  const recipeOverlay = document.getElementById('recipeModalOverlay');
+  const recipeForm = document.getElementById('recipeForm');
+  const recipeError = document.getElementById('recipeError');
+  const recipeModalTitle = document.getElementById('recipeModalTitle');
+  const recipeSubmitBtn = document.getElementById('recipeSubmitBtn');
+  const ingredientPickerList = document.getElementById('ingredientPickerList');
+  const ingredientSearch = document.getElementById('ingredientSearch');
+  const thumbInput = document.getElementById('thumbInput');
+  const thumbPreview = document.getElementById('thumbPreview');
+  let thumbnailDataUrl = null;
+  let editingRecipeId = null;
+  let selectedIngredientIds = new Set();
+
+  function renderIngredientPickerList(query = ''){
+    if(groceriesCache.length === 0){
+      ingredientPickerList.innerHTML = `
+        <div class="picker-empty">
+          You haven't added any groceries yet.<br><br>
+          <button type="button" class="btn-primary" id="ingredientGoToGroceriesBtn">Go to Groceries</button>
+        </div>`;
+      document.getElementById('ingredientGoToGroceriesBtn').addEventListener('click', () => {
+        closeRecipeModal();
+        document.querySelector('.nav-links a[data-view="groceries"]').click();
+      });
+      return;
+    }
+
+    const q = query.trim().toLowerCase();
+    const filtered = groceriesCache.filter(g => g.name.toLowerCase().includes(q));
+
+    ingredientPickerList.innerHTML = filtered.map(g => `
+      <label class="picker-item">
+        <input type="checkbox" value="${g.id}" ${selectedIngredientIds.has(g.id) ? 'checked' : ''}>
+        ${g.thumbnail
+          ? `<img class="picker-thumb" src="${g.thumbnail}" alt="">`
+          : `<div class="picker-thumb-placeholder">🛒</div>`}
+        <div>
+          <div class="picker-name">${escapeHtml(g.name)}</div>
+          <div class="picker-sub">₱${Number(g.price).toLocaleString()} · ${g.category === 'market' ? 'Market' : 'Grocery Store'}</div>
+        </div>
+      </label>`).join('');
+
+    ingredientPickerList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        if(cb.checked) selectedIngredientIds.add(cb.value);
+        else selectedIngredientIds.delete(cb.value);
+      });
+    });
+  }
+
+  ingredientSearch.addEventListener('input', () => renderIngredientPickerList(ingredientSearch.value));
+
+  thumbInput.addEventListener('change', async () => {
+    const file = thumbInput.files[0];
+    if(!file) return;
+    thumbnailDataUrl = await resizeImageFile(file);
+    thumbPreview.src = thumbnailDataUrl;
+    thumbPreview.classList.add('show');
+  });
+
+  function openRecipeModal(recipe = null){
+    editingRecipeId = recipe ? recipe.id : null;
+    recipeModalTitle.textContent = recipe ? 'Edit recipe' : 'New recipe';
+    recipeSubmitBtn.textContent = recipe ? 'Update recipe' : 'Save recipe';
+    recipeForm.reset();
+    document.getElementById('recipeName').value = recipe ? recipe.name : '';
+    selectedIngredientIds = new Set(recipe ? recipe.ingredientIds : []);
+    ingredientSearch.value = '';
+    renderIngredientPickerList();
+    thumbnailDataUrl = recipe ? recipe.thumbnail : null;
+    if(thumbnailDataUrl){ thumbPreview.src = thumbnailDataUrl; thumbPreview.classList.add('show'); }
+    else { thumbPreview.classList.remove('show'); thumbPreview.src = ''; }
+    recipeError.style.display = 'none';
+    recipeOverlay.classList.add('open');
+    document.getElementById('recipeName').focus();
+  }
+  function closeRecipeModal(){ recipeOverlay.classList.remove('open'); }
+
+  document.getElementById('openRecipeModalBtn').addEventListener('click', () => openRecipeModal());
+  document.getElementById('cancelRecipeModalBtn').addEventListener('click', closeRecipeModal);
+  recipeOverlay.addEventListener('click', (e) => { if(e.target === recipeOverlay) closeRecipeModal(); });
+
+  recipeForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('recipeName').value.trim();
+    const ingredientIds = Array.from(selectedIngredientIds);
+
+    if(!name || ingredientIds.length === 0){
+      recipeError.style.display = 'block';
+      return;
+    }
+    recipeError.style.display = 'none';
+
+    recipeSubmitBtn.disabled = true;
+    const payload = {
+      id: editingRecipeId || crypto.randomUUID(),
+      name,
+      ingredientIds,
+      thumbnail: thumbnailDataUrl,
+      createdAt: Date.now()
+    };
+    await (editingRecipeId ? updateRecipe(payload) : createRecipe(payload));
+    recipeSubmitBtn.disabled = false;
+    closeRecipeModal();
+    renderRecipes();
+  });
+
+  // ---- Groceries page ----
+  const grocerySearch = document.getElementById('grocerySearch');
+
+  async function renderGroceries(){
+    const container = document.getElementById('groceryContainer');
+
+    if(!getStorageUrl()){
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="big">🔌</div>
+          <h3>Storage isn't set up yet</h3>
+          <p>Connect a storage backend to start saving groceries.</p>
+        </div>`;
+      return;
+    }
+
+    groceriesCache = await fetchGroceries();
+    renderGroceryGrid();
+  }
+
+  function renderGroceryGrid(){
+    const container = document.getElementById('groceryContainer');
+
+    if(groceriesCache.length === 0){
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="big">🛒</div>
+          <h3>No grocery items yet</h3>
+          <p>Items you add will show up here with their prices.</p>
+          <button class="btn-primary" id="emptyAddGroceryBtn">+ Add item</button>
+        </div>`;
+      document.getElementById('emptyAddGroceryBtn').addEventListener('click', () => openGroceryModal());
+      return;
+    }
+
+    const query = grocerySearch.value.trim().toLowerCase();
+    const filtered = groceriesCache.filter(g => g.name.toLowerCase().includes(query));
+
+    if(filtered.length === 0){
+      container.innerHTML = `<div class="empty-state"><p>No items match your search.</p></div>`;
+      return;
+    }
+
+    container.innerHTML = `<div class="item-grid">${filtered.map(g => `
+      <div class="item-card">
+        <div class="item-actions">
+          <button class="item-edit" title="Edit item" data-id="${g.id}">✎</button>
+          <button class="item-delete" title="Delete item" data-id="${g.id}">✕</button>
+        </div>
+        ${g.thumbnail
+          ? `<img class="item-thumb" src="${g.thumbnail}" alt="${escapeHtml(g.name)}">`
+          : `<div class="item-thumb-placeholder">🛒</div>`}
+        <div class="item-body">
+          <div class="item-name">${escapeHtml(g.name)}</div>
+          <div class="grocery-meta">
+            <span class="category-badge category-${g.category}">${g.category === 'market' ? 'Market' : 'Grocery Store'}</span>
+            <span class="grocery-price">₱${Number(g.price).toLocaleString()}</span>
+          </div>
+        </div>
+      </div>`).join('')}</div>`;
+
+    container.querySelectorAll('.item-edit').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const item = groceriesCache.find(g => g.id === btn.dataset.id);
+        if(item) openGroceryModal(item);
+      });
+    });
+    container.querySelectorAll('.item-delete').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        await deleteGrocery(btn.dataset.id);
+        renderGroceries();
+      });
+    });
+  }
+
+  grocerySearch.addEventListener('input', renderGroceryGrid);
+
+  // ---- Add/edit grocery item modal ----
+  const groceryOverlay = document.getElementById('groceryModalOverlay');
+  const groceryForm = document.getElementById('groceryForm');
+  const groceryModalTitle = document.getElementById('groceryModalTitle');
+  const grocerySubmitBtn = document.getElementById('grocerySubmitBtn');
+  const groceryThumbInput = document.getElementById('groceryThumbInput');
+  const groceryThumbPreview = document.getElementById('groceryThumbPreview');
+  let groceryThumbnailDataUrl = null;
+  let editingGroceryId = null;
+
+  groceryThumbInput.addEventListener('change', async () => {
+    const file = groceryThumbInput.files[0];
+    if(!file) return;
+    groceryThumbnailDataUrl = await resizeImageFile(file);
+    groceryThumbPreview.src = groceryThumbnailDataUrl;
+    groceryThumbPreview.classList.add('show');
+  });
+
+  function openGroceryModal(item = null){
+    editingGroceryId = item ? item.id : null;
+    groceryModalTitle.textContent = item ? 'Edit grocery item' : 'New grocery item';
+    grocerySubmitBtn.textContent = item ? 'Update item' : 'Save item';
+    groceryForm.reset();
+    document.getElementById('groceryName').value = item ? item.name : '';
+    document.getElementById('groceryCategory').value = item ? item.category : 'market';
+    document.getElementById('groceryPrice').value = item ? item.price : '';
+    groceryThumbnailDataUrl = item ? item.thumbnail : null;
+    if(groceryThumbnailDataUrl){ groceryThumbPreview.src = groceryThumbnailDataUrl; groceryThumbPreview.classList.add('show'); }
+    else { groceryThumbPreview.classList.remove('show'); groceryThumbPreview.src = ''; }
+    groceryOverlay.classList.add('open');
+    document.getElementById('groceryName').focus();
+  }
+  function closeGroceryModal(){ groceryOverlay.classList.remove('open'); }
+
+  document.getElementById('openGroceryModalBtn').addEventListener('click', () => openGroceryModal());
+  document.getElementById('cancelGroceryModalBtn').addEventListener('click', closeGroceryModal);
+  groceryOverlay.addEventListener('click', (e) => { if(e.target === groceryOverlay) closeGroceryModal(); });
+
+  groceryForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('groceryName').value.trim();
+    const category = document.getElementById('groceryCategory').value;
+    const price = Number(document.getElementById('groceryPrice').value);
+
+    grocerySubmitBtn.disabled = true;
+    const payload = {
+      id: editingGroceryId || crypto.randomUUID(),
+      name,
+      category,
+      price,
+      thumbnail: groceryThumbnailDataUrl,
+      createdAt: Date.now()
+    };
+    await (editingGroceryId ? updateGrocery(payload) : createGrocery(payload));
+    grocerySubmitBtn.disabled = false;
+    closeGroceryModal();
+    renderGroceries();
+  });
+
+  // ---- Grocery list (per meal plan) ----
+  function showView(viewName){
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-' + viewName).classList.add('active');
+  }
+
+  // Sums each ingredient's quantity across every meal in the plan (skipping zeros),
+  // and records which recipes in this plan called for it.
+  function computeInitialGroceryItems(plan){
+    const totals = new Map(); // itemId -> { quantity, recipeIds: Set }
+    Object.values(plan.meals || {}).forEach(mealsByType => {
+      Object.values(mealsByType).forEach(entries => {
+        (entries || []).forEach(entry => {
+          const recipe = recipesCache.find(r => r.id === entry.recipeId);
+          Object.entries(entry.quantities || {}).forEach(([itemId, qty]) => {
+            if(!qty) return;
+            if(!totals.has(itemId)) totals.set(itemId, { quantity: 0, recipeIds: new Set() });
+            const t = totals.get(itemId);
+            t.quantity += qty;
+            if(recipe) t.recipeIds.add(recipe.id);
+          });
+        });
+      });
+    });
+    return Array.from(totals.entries()).map(([itemId, t]) => ({
+      itemId, quantity: t.quantity, checked: false, recipeIds: Array.from(t.recipeIds)
+    }));
+  }
+
+  async function openGroceryListView(planId){
+    location.hash = `#/grocery-list/${planId}`;
+    document.querySelectorAll('.nav-links a[data-view]').forEach(l => l.classList.remove('active'));
+    showView('grocery-list');
+    await loadGroceryListView(planId);
+  }
+
+  async function loadGroceryListView(planId){
+    const container = document.getElementById('groceryListContainer');
+    container.innerHTML = 'Loading…';
+    document.getElementById('groceryListSubtitle').textContent = '';
+
+    if(!getStorageUrl()){
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="big">🔌</div>
+          <h3>Storage isn't set up yet</h3>
+          <p>Connect a storage backend to view grocery lists.</p>
+        </div>`;
+      return;
+    }
+
+    const [plans, recipes, groceries] = await Promise.all([fetchPlans(), fetchRecipes(), fetchGroceries()]);
+    plansCache = plans;
+    recipesCache = recipes;
+    groceriesCache = groceries;
+
+    const plan = plansCache.find(p => p.id === planId);
+    if(!plan){
+      container.innerHTML = `
+        <div class="empty-state">
+          <h3>Plan not found</h3>
+          <p>This meal plan may have been deleted.</p>
+        </div>`;
+      return;
+    }
+
+    document.getElementById('groceryListSubtitle').textContent =
+      `${formatDate(plan.fromDate)} – ${formatDate(plan.toDate)}`;
+
+    let listDoc = await fetchGroceryList(planId);
+    if(!listDoc){
+      listDoc = await saveGroceryList(planId, computeInitialGroceryItems(plan));
+    }
+    groceryListCache = listDoc;
+    renderGroceryListItems();
+  }
+
+  async function persistGroceryList(){
+    const saved = await saveGroceryList(groceryListCache.planId, groceryListCache.items);
+    if(saved) groceryListCache = saved;
+  }
+
+  function renderGroceryListItems(){
+    const container = document.getElementById('groceryListContainer');
+    if(!groceryListCache){ container.innerHTML = ''; return; }
+
+    const items = groceryListCache.items || [];
+    if(items.length === 0){
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="big">🧾</div>
+          <h3>Nothing on this list yet</h3>
+          <p>Add items to build this plan's grocery list.</p>
+        </div>`;
+      return;
+    }
+
+    let total = 0;
+    const rows = items.map(entry => {
+      const grocery = groceriesCache.find(g => g.id === entry.itemId);
+      if(!grocery) return '';
+      const lineTotal = Number(grocery.price) * entry.quantity;
+      total += lineTotal;
+      const usedNames = entry.recipeIds.map(recipeName).filter(Boolean);
+      return `
+        <div class="glist-row ${entry.checked ? 'checked' : ''}">
+          <div class="glist-main">
+            <input type="checkbox" class="glist-check" data-item="${entry.itemId}" ${entry.checked ? 'checked' : ''}>
+            ${grocery.thumbnail
+              ? `<img class="glist-thumb" src="${grocery.thumbnail}" alt="">`
+              : `<div class="glist-thumb-placeholder">🛒</div>`}
+            <div class="glist-name">${escapeHtml(grocery.name)}</div>
+            <input type="number" class="qty-input glist-qty" min="0" step="1" value="${entry.quantity}" data-item="${entry.itemId}">
+            <div class="glist-price">₱${lineTotal.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+            <button type="button" class="glist-remove" title="Remove item" data-item="${entry.itemId}">✕</button>
+          </div>
+          <button type="button" class="glist-used-toggle" data-item="${entry.itemId}">Used in ${usedNames.length} recipe${usedNames.length === 1 ? '' : 's'} ▾</button>
+          <div class="glist-used-list" id="glist-used-${entry.itemId}" hidden>
+            ${usedNames.length
+              ? usedNames.map(n => `<span class="meal-chip">${escapeHtml(n)}</span>`).join('')
+              : '<span class="picker-sub">Not used in any recipe — added manually.</span>'}
+          </div>
+        </div>`;
+    }).join('');
+
+    container.innerHTML = `
+      <div class="glist-container">${rows}</div>
+      <div class="glist-total">Total <strong>₱${total.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</strong></div>`;
+
+    container.querySelectorAll('.glist-check').forEach(cb => {
+      cb.addEventListener('change', async () => {
+        const entry = groceryListCache.items.find(i => i.itemId === cb.dataset.item);
+        if(!entry) return;
+        entry.checked = cb.checked;
+        await persistGroceryList();
+        renderGroceryListItems();
+      });
+    });
+
+    container.querySelectorAll('.glist-qty').forEach(input => {
+      input.addEventListener('change', async () => {
+        const entry = groceryListCache.items.find(i => i.itemId === input.dataset.item);
+        if(!entry) return;
+        entry.quantity = Math.max(0, Number(input.value) || 0);
+        await persistGroceryList();
+        renderGroceryListItems();
+      });
+    });
+
+    container.querySelectorAll('.glist-remove').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        groceryListCache.items = groceryListCache.items.filter(i => i.itemId !== btn.dataset.item);
+        await persistGroceryList();
+        renderGroceryListItems();
+      });
+    });
+
+    container.querySelectorAll('.glist-used-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const panel = document.getElementById('glist-used-' + btn.dataset.item);
+        panel.hidden = !panel.hidden;
+      });
+    });
+  }
+
+  document.getElementById('backToPlansBtn').addEventListener('click', () => {
+    history.replaceState(null, '', location.pathname + location.search);
+    document.querySelectorAll('.nav-links a[data-view]').forEach(l => l.classList.remove('active'));
+    document.querySelector('.nav-links a[data-view="plans"]').classList.add('active');
+    showView('plans');
+    renderPlans();
+  });
+
+  // ---- Add items to the grocery list ----
+  const addGlistOverlay = document.getElementById('addGlistItemOverlay');
+  const addGlistList = document.getElementById('addGlistPickerList');
+  const addGlistSearch = document.getElementById('addGlistSearch');
+  let addGlistCheckedIds = new Set();
+
+  function renderAddGlistList(query = ''){
+    const existingIds = new Set((groceryListCache.items || []).map(i => i.itemId));
+    const available = groceriesCache.filter(g => !existingIds.has(g.id));
+
+    if(available.length === 0){
+      addGlistList.innerHTML = `<div class="picker-empty">All your groceries are already on this list.</div>`;
+      return;
+    }
+
+    const q = query.trim().toLowerCase();
+    const filtered = available.filter(g => g.name.toLowerCase().includes(q));
+
+    addGlistList.innerHTML = filtered.map(g => `
+      <label class="picker-item">
+        <input type="checkbox" value="${g.id}" ${addGlistCheckedIds.has(g.id) ? 'checked' : ''}>
+        ${g.thumbnail
+          ? `<img class="picker-thumb" src="${g.thumbnail}" alt="">`
+          : `<div class="picker-thumb-placeholder">🛒</div>`}
+        <div>
+          <div class="picker-name">${escapeHtml(g.name)}</div>
+          <div class="picker-sub">₱${Number(g.price).toLocaleString()} · ${g.category === 'market' ? 'Market' : 'Grocery Store'}</div>
+        </div>
+      </label>`).join('');
+
+    addGlistList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        if(cb.checked) addGlistCheckedIds.add(cb.value);
+        else addGlistCheckedIds.delete(cb.value);
+      });
+    });
+  }
+
+  function openAddGlistModal(){
+    addGlistCheckedIds = new Set();
+    addGlistSearch.value = '';
+    renderAddGlistList();
+    addGlistOverlay.classList.add('open');
+  }
+  function closeAddGlistModal(){ addGlistOverlay.classList.remove('open'); }
+
+  addGlistSearch.addEventListener('input', () => renderAddGlistList(addGlistSearch.value));
+  document.getElementById('openAddGlistItemBtn').addEventListener('click', openAddGlistModal);
+  document.getElementById('cancelAddGlistBtn').addEventListener('click', closeAddGlistModal);
+  addGlistOverlay.addEventListener('click', (e) => { if(e.target === addGlistOverlay) closeAddGlistModal(); });
+
+  document.getElementById('saveAddGlistBtn').addEventListener('click', async () => {
+    const ids = Array.from(addGlistCheckedIds);
+    if(ids.length > 0){
+      ids.forEach(id => {
+        groceryListCache.items.push({ itemId: id, quantity: 1, checked: false, recipeIds: [] });
+      });
+      await persistGroceryList();
+      renderGroceryListItems();
+    }
+    closeAddGlistModal();
+  });
+
+  // ---- Routing: keeps the grocery list view refresh-safe and shareable via URL ----
+  function clearGroceryListHash(){
+    if(location.hash.startsWith('#/grocery-list/')){
+      history.replaceState(null, '', location.pathname + location.search);
+    }
+  }
+
+  function initRoute(){
+    const match = location.hash.match(/^#\/grocery-list\/(.+)$/);
+    if(match){
+      openGroceryListView(decodeURIComponent(match[1]));
+    }else{
+      renderPlans();
+    }
+  }
+
+  window.addEventListener('hashchange', () => {
+    const match = location.hash.match(/^#\/grocery-list\/(.+)$/);
+    if(match){
+      document.querySelectorAll('.nav-links a[data-view]').forEach(l => l.classList.remove('active'));
+      showView('grocery-list');
+      loadGroceryListView(decodeURIComponent(match[1]));
+    }
+  });
+
+  initRoute();
 </script>
 
 </body>

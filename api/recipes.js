@@ -1,14 +1,13 @@
-// Vercel serverless function backing the meal planner site.
-// Replaces apps-script/Code.gs — same request/response shape, backed by MongoDB Atlas
-// instead of a Google Sheet. Needs a MONGODB_URI env var set in the Vercel project settings.
-
+// Vercel serverless function for recipes, mirroring api/plans.js.
+// Thumbnails are stored as base64 data URLs directly on the document (resized
+// client-side first) rather than in a separate object store, to keep this a
+// one-database setup.
 require('dotenv').config({ path: '.env.local' });
 const { MongoClient } = require('mongodb');
 
 const DB_NAME = process.env.MONGODB_DB || 'mealplanner';
-const COLLECTION = 'plans';
+const COLLECTION = 'recipes';
 
-// Cache the client across warm invocations instead of reconnecting every request.
 let clientPromise;
 function getClient() {
   if (!clientPromise) {
@@ -18,20 +17,19 @@ function getClient() {
   return clientPromise;
 }
 
-function docToPlan(doc) {
+function docToRecipe(doc) {
   return {
     id: doc._id,
-    fromDate: doc.fromDate,
-    toDate: doc.toDate,
-    budget: doc.budget,
+    name: doc.name,
+    ingredientIds: doc.ingredientIds || [],
+    thumbnail: doc.thumbnail || null,
     createdAt: doc.createdAt,
-    meals: doc.meals || {},
   };
 }
 
-async function getAllPlans(collection) {
+async function getAllRecipes(collection) {
   const docs = await collection.find({}).toArray();
-  return docs.map(docToPlan);
+  return docs.map(docToRecipe);
 }
 
 module.exports = async function handler(req, res) {
@@ -49,7 +47,7 @@ module.exports = async function handler(req, res) {
     const collection = client.db(DB_NAME).collection(COLLECTION);
 
     if (req.method === 'GET') {
-      res.status(200).json(await getAllPlans(collection));
+      res.status(200).json(await getAllRecipes(collection));
       return;
     }
 
@@ -57,26 +55,29 @@ module.exports = async function handler(req, res) {
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
 
       if (body.action === 'create') {
-        const plan = body.plan;
+        const recipe = body.recipe;
         await collection.insertOne({
-          _id: plan.id,
-          fromDate: plan.fromDate,
-          toDate: plan.toDate,
-          budget: plan.budget,
-          createdAt: plan.createdAt,
-          meals: plan.meals || {},
+          _id: recipe.id,
+          name: recipe.name,
+          ingredientIds: recipe.ingredientIds || [],
+          thumbnail: recipe.thumbnail || null,
+          createdAt: recipe.createdAt,
         });
+      } else if (body.action === 'update') {
+        const recipe = body.recipe;
+        await collection.updateOne(
+          { _id: recipe.id },
+          { $set: {
+            name: recipe.name,
+            ingredientIds: recipe.ingredientIds || [],
+            thumbnail: recipe.thumbnail || null,
+          } }
+        );
       } else if (body.action === 'delete') {
         await collection.deleteOne({ _id: body.id });
-      } else if (body.action === 'updateMeal') {
-        // body.entries: [{ recipeId, quantities: { [groceryItemId]: number } }, ...]
-        await collection.updateOne(
-          { _id: body.id },
-          { $set: { [`meals.${body.date}.${body.mealType}`]: body.entries || [] } }
-        );
       }
 
-      res.status(200).json(await getAllPlans(collection));
+      res.status(200).json(await getAllRecipes(collection));
       return;
     }
 
