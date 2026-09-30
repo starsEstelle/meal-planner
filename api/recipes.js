@@ -21,7 +21,9 @@ function docToRecipe(doc) {
   return {
     id: doc._id,
     name: doc.name,
-    ingredientIds: doc.ingredientIds || [],
+    // Normalized (trimmed, lowercased) generic item names — e.g. "soy sauce" —
+    // not grocery document ids, so any brand variant of that item can be used.
+    ingredientItems: doc.ingredientItems || [],
     thumbnail: doc.thumbnail || null,
     createdAt: doc.createdAt,
   };
@@ -59,7 +61,7 @@ module.exports = async function handler(req, res) {
         await collection.insertOne({
           _id: recipe.id,
           name: recipe.name,
-          ingredientIds: recipe.ingredientIds || [],
+          ingredientItems: recipe.ingredientItems || [],
           thumbnail: recipe.thumbnail || null,
           createdAt: recipe.createdAt,
         });
@@ -69,7 +71,7 @@ module.exports = async function handler(req, res) {
           { _id: recipe.id },
           { $set: {
             name: recipe.name,
-            ingredientIds: recipe.ingredientIds || [],
+            ingredientItems: recipe.ingredientItems || [],
             thumbnail: recipe.thumbnail || null,
           } }
         );

@@ -1,5 +1,7 @@
-// Vercel serverless function for the grocery item database (name, category, price,
-// optional thumbnail). Mirrors api/recipes.js and api/plans.js.
+// Vercel serverless function for the grocery item database. Each item's name is split
+// into brand / item / notes (e.g. "Datu Puti" / "Soy Sauce" / "1L") — recipes only
+// reference the generic `item` part, so several brand variants of the same ingredient
+// can share one recipe. Mirrors api/recipes.js and api/plans.js.
 require('dotenv').config({ path: '.env.local' });
 const { MongoClient } = require('mongodb');
 
@@ -18,7 +20,11 @@ function getClient() {
 function docToItem(doc) {
   return {
     id: doc._id,
-    name: doc.name,
+    brand: doc.brand || null,
+    // Pre-migration records only have the old flat `name` field — fall back to it
+    // so they still resolve to a valid generic item instead of an empty string.
+    item: doc.item || doc.name || '',
+    notes: doc.notes || null,
     category: doc.category,
     // Only meaningful when category === 'grocery' — Market items are food by definition.
     subCategory: doc.subCategory || null,
@@ -58,28 +64,32 @@ module.exports = async function handler(req, res) {
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
 
       if (body.action === 'create') {
-        const item = body.item;
+        const entry = body.item;
         await collection.insertOne({
-          _id: item.id,
-          name: item.name,
-          category: item.category,
-          subCategory: item.subCategory || null,
-          pricingUnit: item.pricingUnit || 'unit',
-          price: item.price,
-          thumbnail: item.thumbnail || null,
-          createdAt: item.createdAt,
+          _id: entry.id,
+          brand: entry.brand || null,
+          item: entry.item,
+          notes: entry.notes || null,
+          category: entry.category,
+          subCategory: entry.subCategory || null,
+          pricingUnit: entry.pricingUnit || 'unit',
+          price: entry.price,
+          thumbnail: entry.thumbnail || null,
+          createdAt: entry.createdAt,
         });
       } else if (body.action === 'update') {
-        const item = body.item;
+        const entry = body.item;
         await collection.updateOne(
-          { _id: item.id },
+          { _id: entry.id },
           { $set: {
-            name: item.name,
-            category: item.category,
-            subCategory: item.subCategory || null,
-            pricingUnit: item.pricingUnit || 'unit',
-            price: item.price,
-            thumbnail: item.thumbnail || null,
+            brand: entry.brand || null,
+            item: entry.item,
+            notes: entry.notes || null,
+            category: entry.category,
+            subCategory: entry.subCategory || null,
+            pricingUnit: entry.pricingUnit || 'unit',
+            price: entry.price,
+            thumbnail: entry.thumbnail || null,
           } }
         );
       } else if (body.action === 'delete') {

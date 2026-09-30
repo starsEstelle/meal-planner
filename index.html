@@ -307,10 +307,14 @@
   .qty-recipe-group:last-child{margin-bottom:0;}
   .qty-recipe-name{font-weight:700; font-size:0.92rem; margin-bottom:8px; color:var(--sage-dark);}
   .qty-row{
-    display:flex; align-items:center; justify-content:space-between; gap:12px;
-    padding:8px 0; border-bottom:1px solid #F2ECE4;
+    display:flex; align-items:center; gap:10px;
+    padding:10px 0; border-bottom:1px solid #F2ECE4; flex-wrap:wrap;
   }
   .qty-row:last-child{border-bottom:none;}
+  .qty-item-name{font-weight:700; font-size:0.88rem; flex:0 0 auto; min-width:90px;}
+  .qty-variant-select{flex:1; min-width:140px;}
+  .qty-input-wrap{display:flex; align-items:center; gap:6px; flex-shrink:0;}
+  .qty-unit-suffix{font-size:0.78rem; color:var(--text-soft); font-weight:700; min-width:16px;}
   .qty-input{
     width:70px; text-align:center; padding:8px 6px; border-radius:10px; border:1.5px solid #E9DFD2;
     font-family:inherit; font-size:0.9rem; background:var(--white); color:var(--text);
@@ -495,11 +499,21 @@
 <div class="modal-overlay" id="groceryModalOverlay">
   <div class="modal">
     <h2 id="groceryModalTitle">New grocery item</h2>
-    <p class="modal-sub">Add its name, category, and price. A thumbnail is optional.</p>
+    <p class="modal-sub">Name it as Brand + Item + Notes (e.g. Datu Puti · Soy Sauce · 1L) — recipes only look at the Item part, so swapping brands later is just an edit.</p>
     <form id="groceryForm">
+      <div class="field-row">
+        <div class="field">
+          <label for="groceryBrand">Brand (optional)</label>
+          <input type="text" id="groceryBrand" placeholder="e.g. Datu Puti">
+        </div>
+        <div class="field">
+          <label for="groceryItem">Item</label>
+          <input type="text" id="groceryItem" placeholder="e.g. Soy Sauce" required>
+        </div>
+      </div>
       <div class="field">
-        <label for="groceryName">Item name</label>
-        <input type="text" id="groceryName" placeholder="e.g. Chicken breast" required>
+        <label for="groceryNotes">Notes / extra (optional)</label>
+        <input type="text" id="groceryNotes" placeholder="e.g. 1L, Family size">
       </div>
       <div class="field-row">
         <div class="field">
@@ -673,9 +687,23 @@
   let plansCache = [];
   let groceryListCache = null; // { planId, items: [{ itemId, quantity, checked, recipeIds }] }
 
+  // A grocery entry's name is Brand + Item + Notes (e.g. "Datu Puti Soy Sauce 1L") —
+  // recipes reference only the generic Item part, so swapping a brand is just an edit.
+  function displayName(g){
+    return [g.brand, g.item, g.notes].filter(Boolean).join(' ');
+  }
+
+  function normalizeItemKey(str){
+    return String(str).trim().toLowerCase();
+  }
+
+  function displayItemKey(key){
+    return String(key).replace(/\b\w/g, c => c.toUpperCase());
+  }
+
   function groceryName(id){
     const item = groceriesCache.find(g => g.id === id);
-    return item ? item.name : null;
+    return item ? displayName(item) : null;
   }
 
   function categoryLabel(g){
@@ -974,7 +1002,7 @@
           : `<div class="picker-thumb-placeholder">🍳</div>`}
         <div>
           <div class="picker-name">${escapeHtml(r.name)}</div>
-          <div class="picker-sub">${r.ingredientIds.map(groceryName).filter(Boolean).join(', ')}</div>
+          <div class="picker-sub">${r.ingredientItems.map(displayItemKey).join(', ')}</div>
         </div>
       </label>`).join('');
 
@@ -1028,6 +1056,8 @@
   const quantitiesList = document.getElementById('quantitiesList');
   let quantitiesRecipeIds = [];
 
+  // Each recipe ingredient is a generic Item (e.g. "Soy Sauce"); here the user picks which
+  // specific brand variant to actually buy for this meal, then how much of it.
   function openQuantities(recipeIds){
     quantitiesRecipeIds = recipeIds;
     const existingByRecipe = new Map(currentSelectedEntries().map(entry => [entry.recipeId, entry.quantities || {}]));
@@ -1036,22 +1066,46 @@
       const recipe = recipesCache.find(r => r.id === rid);
       if(!recipe) return '';
       const prevQuantities = existingByRecipe.get(rid) || {};
-      const rows = recipe.ingredientIds.map(gid => {
-        const grocery = groceriesCache.find(g => g.id === gid);
-        if(!grocery) return '';
-        const isKg = grocery.pricingUnit === 'kg';
-        const qty = prevQuantities[gid] === undefined ? 1 : prevQuantities[gid];
-        return `<div class="qty-row">
-          <span>${escapeHtml(grocery.name)}${isKg ? ' <span class="picker-sub">(specify kg)</span>' : ''}</span>
-          <input type="number" class="qty-input" min="0" step="${isKg ? '0.1' : '1'}" value="${qty}"
-            data-recipe="${rid}" data-grocery="${gid}">
+
+      const rows = recipe.ingredientItems.map(itemKey => {
+        const variants = groceriesCache.filter(g => normalizeItemKey(g.item) === itemKey);
+        if(variants.length === 0) return '';
+
+        const prev = prevQuantities[itemKey]; // { itemId, quantity } | undefined
+        const selectedVariantId = (prev && variants.some(v => v.id === prev.itemId)) ? prev.itemId : variants[0].id;
+        const selectedVariant = variants.find(v => v.id === selectedVariantId);
+        const isKg = selectedVariant.pricingUnit === 'kg';
+        const qty = prev ? prev.quantity : 1;
+
+        const options = variants.map(v =>
+          `<option value="${v.id}" ${v.id === selectedVariantId ? 'selected' : ''}>${escapeHtml(displayName(v))}</option>`
+        ).join('');
+
+        return `<div class="qty-row" data-recipe="${rid}" data-item-key="${escapeHtml(itemKey)}">
+          <div class="qty-item-name">${escapeHtml(displayItemKey(itemKey))}</div>
+          <select class="qty-variant-select">${options}</select>
+          <div class="qty-input-wrap">
+            <input type="number" class="qty-input" min="0" step="${isKg ? '0.1' : '1'}" value="${qty}">
+            <span class="qty-unit-suffix">${isKg ? 'kg' : ''}</span>
+          </div>
         </div>`;
-      }).join('');
+      }).join('') || `<div class="picker-sub">No purchasable items available for this recipe's ingredients.</div>`;
+
       return `<div class="qty-recipe-group">
         <div class="qty-recipe-name">${escapeHtml(recipe.name)}</div>
         ${rows}
       </div>`;
     }).join('');
+
+    quantitiesList.querySelectorAll('.qty-row').forEach(row => {
+      const select = row.querySelector('.qty-variant-select');
+      select.addEventListener('change', () => {
+        const variant = groceriesCache.find(g => g.id === select.value);
+        const isKg = variant && variant.pricingUnit === 'kg';
+        row.querySelector('.qty-input').step = isKg ? '0.1' : '1';
+        row.querySelector('.qty-unit-suffix').textContent = isKg ? 'kg' : '';
+      });
+    });
 
     pickerOverlay.classList.remove('open');
     quantitiesOverlay.classList.add('open');
@@ -1072,8 +1126,11 @@
     const { planId, date, type } = pickerContext;
     const entries = quantitiesRecipeIds.map(rid => {
       const quantities = {};
-      quantitiesList.querySelectorAll(`input[data-recipe="${rid}"]`).forEach(input => {
-        quantities[input.dataset.grocery] = Number(input.value) || 0;
+      quantitiesList.querySelectorAll(`.qty-row[data-recipe="${rid}"]`).forEach(row => {
+        const itemKey = row.dataset.itemKey;
+        const itemId = row.querySelector('.qty-variant-select').value;
+        const quantity = Math.max(0, Number(row.querySelector('.qty-input').value) || 0);
+        quantities[itemKey] = { itemId, quantity };
       });
       return { recipeId: rid, quantities };
     });
@@ -1167,8 +1224,8 @@
           : `<div class="item-thumb-placeholder">🍳</div>`}
         <div class="item-body">
           <div class="item-name">${escapeHtml(r.name)}</div>
-          <ul class="recipe-ingredients">${r.ingredientIds.map(groceryName).filter(Boolean)
-            .map(name => `<li>${escapeHtml(name)}</li>`).join('')}</ul>
+          <ul class="recipe-ingredients">${r.ingredientItems
+            .map(key => `<li>${escapeHtml(displayItemKey(key))}</li>`).join('')}</ul>
         </div>
       </div>`).join('')}</div>`;
 
@@ -1201,12 +1258,21 @@
   const thumbPreview = document.getElementById('thumbPreview');
   let thumbnailDataUrl = null;
   let editingRecipeId = null;
-  let selectedIngredientIds = new Set();
+  let selectedIngredientItems = new Set(); // normalized item-name keys, e.g. "soy sauce"
+
+  // Recipes reference the generic Item, not a specific brand — so this picker shows one
+  // row per distinct Item (using a representative variant for its thumbnail/price/category).
+  function getDistinctFoodItems(){
+    const foodItems = groceriesCache.filter(g => !(g.category === 'grocery' && g.subCategory === 'toiletries'));
+    const distinct = new Map(); // normalizedKey -> representative grocery entry
+    foodItems.forEach(g => {
+      const key = normalizeItemKey(g.item);
+      if(key && !distinct.has(key)) distinct.set(key, g);
+    });
+    return distinct;
+  }
 
   function renderIngredientPickerList(query = ''){
-    // Toiletries aren't edible — keep them out of the recipe ingredient list.
-    const foodItems = groceriesCache.filter(g => !(g.category === 'grocery' && g.subCategory === 'toiletries'));
-
     if(groceriesCache.length === 0){
       ingredientPickerList.innerHTML = `
         <div class="picker-empty">
@@ -1220,30 +1286,31 @@
       return;
     }
 
-    if(foodItems.length === 0){
+    const distinct = getDistinctFoodItems();
+    if(distinct.size === 0){
       ingredientPickerList.innerHTML = `<div class="picker-empty">All your groceries are marked as Toiletries — add a food item first.</div>`;
       return;
     }
 
     const q = query.trim().toLowerCase();
-    const filtered = foodItems.filter(g => g.name.toLowerCase().includes(q));
+    const filtered = Array.from(distinct.entries()).filter(([key]) => key.includes(q));
 
-    ingredientPickerList.innerHTML = filtered.map(g => `
+    ingredientPickerList.innerHTML = filtered.map(([key, rep]) => `
       <label class="picker-item">
-        <input type="checkbox" value="${g.id}" ${selectedIngredientIds.has(g.id) ? 'checked' : ''}>
-        ${g.thumbnail
-          ? `<img class="picker-thumb" src="${g.thumbnail}" alt="">`
+        <input type="checkbox" value="${escapeHtml(key)}" ${selectedIngredientItems.has(key) ? 'checked' : ''}>
+        ${rep.thumbnail
+          ? `<img class="picker-thumb" src="${rep.thumbnail}" alt="">`
           : `<div class="picker-thumb-placeholder">🛒</div>`}
         <div>
-          <div class="picker-name">${escapeHtml(g.name)}</div>
-          <div class="picker-sub">${priceLabel(g)} · ${categoryLabel(g)}</div>
+          <div class="picker-name">${escapeHtml(displayItemKey(key))}</div>
+          <div class="picker-sub">${priceLabel(rep)} · ${categoryLabel(rep)}</div>
         </div>
       </label>`).join('');
 
     ingredientPickerList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
       cb.addEventListener('change', () => {
-        if(cb.checked) selectedIngredientIds.add(cb.value);
-        else selectedIngredientIds.delete(cb.value);
+        if(cb.checked) selectedIngredientItems.add(cb.value);
+        else selectedIngredientItems.delete(cb.value);
       });
     });
   }
@@ -1264,7 +1331,7 @@
     recipeSubmitBtn.textContent = recipe ? 'Update recipe' : 'Save recipe';
     recipeForm.reset();
     document.getElementById('recipeName').value = recipe ? recipe.name : '';
-    selectedIngredientIds = new Set(recipe ? recipe.ingredientIds : []);
+    selectedIngredientItems = new Set(recipe ? recipe.ingredientItems : []);
     ingredientSearch.value = '';
     renderIngredientPickerList();
     thumbnailDataUrl = recipe ? recipe.thumbnail : null;
@@ -1283,9 +1350,9 @@
   recipeForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = document.getElementById('recipeName').value.trim();
-    const ingredientIds = Array.from(selectedIngredientIds);
+    const ingredientItems = Array.from(selectedIngredientItems);
 
-    if(!name || ingredientIds.length === 0){
+    if(!name || ingredientItems.length === 0){
       recipeError.style.display = 'block';
       return;
     }
@@ -1295,7 +1362,7 @@
     const payload = {
       id: editingRecipeId || crypto.randomUUID(),
       name,
-      ingredientIds,
+      ingredientItems,
       thumbnail: thumbnailDataUrl,
       createdAt: Date.now()
     };
@@ -1341,7 +1408,7 @@
     }
 
     const query = grocerySearch.value.trim().toLowerCase();
-    const filtered = groceriesCache.filter(g => g.name.toLowerCase().includes(query));
+    const filtered = groceriesCache.filter(g => displayName(g).toLowerCase().includes(query));
 
     if(filtered.length === 0){
       container.innerHTML = `<div class="empty-state"><p>No items match your search.</p></div>`;
@@ -1355,10 +1422,10 @@
           <button class="item-delete" title="Delete item" data-id="${g.id}">✕</button>
         </div>
         ${g.thumbnail
-          ? `<img class="item-thumb" src="${g.thumbnail}" alt="${escapeHtml(g.name)}">`
+          ? `<img class="item-thumb" src="${g.thumbnail}" alt="${escapeHtml(displayName(g))}">`
           : `<div class="item-thumb-placeholder">🛒</div>`}
         <div class="item-body">
-          <div class="item-name">${escapeHtml(g.name)}</div>
+          <div class="item-name">${escapeHtml(displayName(g))}</div>
           <div class="grocery-meta">
             <span class="category-badge category-${g.category}">${categoryLabel(g)}</span>
             <span class="grocery-price">${priceLabel(g)}</span>
@@ -1415,7 +1482,9 @@
     groceryModalTitle.textContent = item ? 'Edit grocery item' : 'New grocery item';
     grocerySubmitBtn.textContent = item ? 'Update item' : 'Save item';
     groceryForm.reset();
-    document.getElementById('groceryName').value = item ? item.name : '';
+    document.getElementById('groceryBrand').value = item ? (item.brand || '') : '';
+    document.getElementById('groceryItem').value = item ? item.item : '';
+    document.getElementById('groceryNotes').value = item ? (item.notes || '') : '';
     groceryCategorySelect.value = item ? item.category : 'market';
     grocerySubCategorySelect.value = (item && item.subCategory) || 'food';
     document.getElementById('groceryPricingUnit').value = (item && item.pricingUnit) || 'unit';
@@ -1425,7 +1494,7 @@
     if(groceryThumbnailDataUrl){ groceryThumbPreview.src = groceryThumbnailDataUrl; groceryThumbPreview.classList.add('show'); }
     else { groceryThumbPreview.classList.remove('show'); groceryThumbPreview.src = ''; }
     groceryOverlay.classList.add('open');
-    document.getElementById('groceryName').focus();
+    document.getElementById('groceryItem').focus();
   }
   function closeGroceryModal(){ groceryOverlay.classList.remove('open'); }
 
@@ -1435,7 +1504,9 @@
 
   groceryForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const name = document.getElementById('groceryName').value.trim();
+    const brand = document.getElementById('groceryBrand').value.trim();
+    const itemName = document.getElementById('groceryItem').value.trim();
+    const notes = document.getElementById('groceryNotes').value.trim();
     const category = groceryCategorySelect.value;
     const subCategory = category === 'grocery' ? grocerySubCategorySelect.value : null;
     const pricingUnit = document.getElementById('groceryPricingUnit').value;
@@ -1444,7 +1515,9 @@
     grocerySubmitBtn.disabled = true;
     const payload = {
       id: editingGroceryId || crypto.randomUUID(),
-      name,
+      brand: brand || null,
+      item: itemName,
+      notes: notes || null,
       category,
       subCategory,
       pricingUnit,
@@ -1467,16 +1540,18 @@
   // Sums each ingredient's quantity across every meal in the plan (skipping zeros),
   // and records which recipes in this plan called for it.
   function computeInitialGroceryItems(plan){
-    const totals = new Map(); // itemId -> { quantity, recipeIds: Set }
+    const totals = new Map(); // specific grocery itemId -> { quantity, recipeIds: Set }
     Object.values(plan.meals || {}).forEach(mealsByType => {
       Object.values(mealsByType).forEach(entries => {
         (entries || []).forEach(entry => {
           const recipe = recipesCache.find(r => r.id === entry.recipeId);
-          Object.entries(entry.quantities || {}).forEach(([itemId, qty]) => {
-            if(!qty) return;
+          // quantities is keyed by generic item (e.g. "soy sauce"); each value names the
+          // specific brand variant chosen for it plus how much of that variant is needed.
+          Object.values(entry.quantities || {}).forEach(({ itemId, quantity }) => {
+            if(!quantity) return;
             if(!totals.has(itemId)) totals.set(itemId, { quantity: 0, recipeIds: new Set() });
             const t = totals.get(itemId);
-            t.quantity += qty;
+            t.quantity += quantity;
             if(recipe) t.recipeIds.add(recipe.id);
           });
         });
@@ -1570,7 +1645,7 @@
             ${grocery.thumbnail
               ? `<img class="glist-thumb" src="${grocery.thumbnail}" alt="">`
               : `<div class="glist-thumb-placeholder">🛒</div>`}
-            <div class="glist-name">${escapeHtml(grocery.name)}${isKg ? ' <span class="picker-sub">(kg)</span>' : ''}</div>
+            <div class="glist-name">${escapeHtml(displayName(grocery))}${isKg ? ' <span class="picker-sub">(kg)</span>' : ''}</div>
             <input type="number" class="qty-input glist-qty" min="0" step="${isKg ? '0.1' : '1'}" value="${entry.quantity}" data-item="${entry.itemId}">
             <div class="glist-price">₱${lineTotal.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
             <button type="button" class="glist-remove" title="Remove item" data-item="${entry.itemId}">✕</button>
@@ -1648,7 +1723,7 @@
     }
 
     const q = query.trim().toLowerCase();
-    const filtered = available.filter(g => g.name.toLowerCase().includes(q));
+    const filtered = available.filter(g => displayName(g).toLowerCase().includes(q));
 
     addGlistList.innerHTML = filtered.map(g => `
       <label class="picker-item">
@@ -1657,7 +1732,7 @@
           ? `<img class="picker-thumb" src="${g.thumbnail}" alt="">`
           : `<div class="picker-thumb-placeholder">🛒</div>`}
         <div>
-          <div class="picker-name">${escapeHtml(g.name)}</div>
+          <div class="picker-name">${escapeHtml(displayName(g))}</div>
           <div class="picker-sub">${priceLabel(g)} · ${categoryLabel(g)}</div>
         </div>
       </label>`).join('');
