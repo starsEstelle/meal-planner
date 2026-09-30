@@ -476,9 +476,10 @@
         <input type="text" id="recipeName" placeholder="e.g. Chicken Adobo" required>
       </div>
       <div class="field">
-        <label>Ingredients</label>
+        <label>Ingredients <span id="ingredientCount" class="picker-sub"></span></label>
         <input type="text" class="search-bar" id="ingredientSearch" placeholder="Search groceries…" style="margin-bottom:10px;">
         <div class="picker-list" id="ingredientPickerList"></div>
+        <button type="button" class="add-ingredient-btn" id="addIngredientGroceryBtn">+ Add new grocery item</button>
       </div>
       <div class="field-error" id="recipeError">Add a name and at least one ingredient.</div>
       <div class="field">
@@ -838,7 +839,7 @@
           </div>
         </div>
         ${mealTableHtml(plan)}
-        <div style="margin-top:18px;">
+        <div style="margin-top:18px; display:flex; justify-content:flex-end;">
           <button class="btn-secondary view-grocery-list-btn" data-plan="${plan.id}">📋 View Grocery List</button>
         </div>
       `;
@@ -1272,7 +1273,13 @@
     return distinct;
   }
 
+  function updateIngredientCount(){
+    document.getElementById('ingredientCount').textContent = `— ${selectedIngredientItems.size} selected`;
+  }
+
   function renderIngredientPickerList(query = ''){
+    updateIngredientCount();
+
     if(groceriesCache.length === 0){
       ingredientPickerList.innerHTML = `
         <div class="picker-empty">
@@ -1298,9 +1305,6 @@
     ingredientPickerList.innerHTML = filtered.map(([key, rep]) => `
       <label class="picker-item">
         <input type="checkbox" value="${escapeHtml(key)}" ${selectedIngredientItems.has(key) ? 'checked' : ''}>
-        ${rep.thumbnail
-          ? `<img class="picker-thumb" src="${rep.thumbnail}" alt="">`
-          : `<div class="picker-thumb-placeholder">🛒</div>`}
         <div>
           <div class="picker-name">${escapeHtml(displayItemKey(key))}</div>
           <div class="picker-sub">${priceLabel(rep)} · ${categoryLabel(rep)}</div>
@@ -1311,11 +1315,16 @@
       cb.addEventListener('change', () => {
         if(cb.checked) selectedIngredientItems.add(cb.value);
         else selectedIngredientItems.delete(cb.value);
+        updateIngredientCount();
       });
     });
   }
 
   ingredientSearch.addEventListener('input', () => renderIngredientPickerList(ingredientSearch.value));
+
+  document.getElementById('addIngredientGroceryBtn').addEventListener('click', () => {
+    openGroceryModal();
+  });
 
   thumbInput.addEventListener('change', async () => {
     const file = thumbInput.files[0];
@@ -1528,7 +1537,13 @@
     await (editingGroceryId ? updateGrocery(payload) : createGrocery(payload));
     grocerySubmitBtn.disabled = false;
     closeGroceryModal();
-    renderGroceries();
+    await renderGroceries();
+
+    // Added from inside the recipe modal — refresh its picker and select the new item.
+    if(recipeOverlay.classList.contains('open')){
+      selectedIngredientItems.add(normalizeItemKey(itemName));
+      renderIngredientPickerList(ingredientSearch.value);
+    }
   });
 
   // ---- Grocery list (per meal plan) ----
