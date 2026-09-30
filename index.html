@@ -184,6 +184,7 @@
   .modal{
     background:var(--cream-soft); border-radius:var(--radius-lg); padding:32px;
     width:100%; max-width:420px; box-shadow:0 20px 60px rgba(0,0,0,0.2);
+    max-height:calc(100vh - 40px); overflow-y:auto;
   }
   .modal h2{margin:0 0 6px; font-size:1.4rem;}
   .modal .modal-sub{color:var(--text-soft); font-size:0.88rem; margin:0 0 24px;}
@@ -388,7 +389,12 @@
       <h1>Recipes</h1>
       <button class="nav-add" id="openRecipeModalBtn">+ Add recipe</button>
     </div>
-    <input type="text" class="search-bar" id="recipeSearch" placeholder="Search recipes…">
+    <div style="display:flex; gap:10px; margin-bottom:22px; flex-wrap:wrap;">
+      <input type="text" class="search-bar" id="recipeSearch" placeholder="Search recipes…" style="flex:1; min-width:180px; margin-bottom:0;">
+      <select id="recipeIngredientFilter" style="width:auto; flex:0 0 200px;">
+        <option value="">All ingredients</option>
+      </select>
+    </div>
     <div id="recipeContainer">Loading…</div>
   </section>
 
@@ -397,7 +403,17 @@
       <h1>Groceries</h1>
       <button class="nav-add" id="openGroceryModalBtn">+ Add item</button>
     </div>
-    <input type="text" class="search-bar" id="grocerySearch" placeholder="Search groceries…">
+    <div style="display:flex; gap:10px; margin-bottom:22px; flex-wrap:wrap;">
+      <input type="text" class="search-bar" id="grocerySearch" placeholder="Search groceries…" style="flex:1; min-width:180px; margin-bottom:0;">
+      <select id="grocerySort" style="width:auto; flex:0 0 200px;">
+        <option value="name-asc">Name (A–Z)</option>
+        <option value="name-desc">Name (Z–A)</option>
+        <option value="price-asc">Price (low–high)</option>
+        <option value="price-desc">Price (high–low)</option>
+        <option value="category-asc">Category (A–Z)</option>
+        <option value="category-desc">Category (Z–A)</option>
+      </select>
+    </div>
     <div id="groceryContainer">Loading…</div>
   </section>
 
@@ -469,7 +485,6 @@
 <div class="modal-overlay" id="recipeModalOverlay">
   <div class="modal">
     <h2 id="recipeModalTitle">New recipe</h2>
-    <p class="modal-sub">Add its name and pick its ingredients from your groceries. A thumbnail is optional.</p>
     <form id="recipeForm">
       <div class="field">
         <label for="recipeName">Recipe name</label>
@@ -500,7 +515,6 @@
 <div class="modal-overlay" id="groceryModalOverlay">
   <div class="modal">
     <h2 id="groceryModalTitle">New grocery item</h2>
-    <p class="modal-sub">Name it as Brand + Item + Notes (e.g. Datu Puti · Soy Sauce · 1L) — recipes only look at the Item part, so swapping brands later is just an edit.</p>
     <form id="groceryForm">
       <div class="field-row">
         <div class="field">
@@ -848,6 +862,9 @@
 
     list.querySelectorAll('.plan-delete').forEach(btn => {
       btn.addEventListener('click', async () => {
+        const plan = plansCache.find(p => p.id === btn.dataset.id);
+        const label = plan ? `${formatDate(plan.fromDate)} – ${formatDate(plan.toDate)}` : 'this meal plan';
+        if(!confirm(`Delete the meal plan for ${label}? This can't be undone.`)) return;
         btn.disabled = true;
         await deletePlan(btn.dataset.id);
         renderPlans();
@@ -1171,6 +1188,17 @@
 
   // ---- Recipes page ----
   const recipeSearch = document.getElementById('recipeSearch');
+  const recipeIngredientFilter = document.getElementById('recipeIngredientFilter');
+
+  function populateRecipeIngredientFilterOptions(){
+    const current = recipeIngredientFilter.value;
+    const allKeys = new Set();
+    recipesCache.forEach(r => r.ingredientItems.forEach(k => allKeys.add(k)));
+    const sortedKeys = Array.from(allKeys).sort();
+    recipeIngredientFilter.innerHTML = `<option value="">All ingredients</option>` +
+      sortedKeys.map(k => `<option value="${escapeHtml(k)}" ${k === current ? 'selected' : ''}>${escapeHtml(displayItemKey(k))}</option>`).join('');
+    if(!sortedKeys.includes(current)) recipeIngredientFilter.value = '';
+  }
 
   async function renderRecipes(){
     const container = document.getElementById('recipeContainer');
@@ -1188,6 +1216,7 @@
     const [recipes, groceries] = await Promise.all([fetchRecipes(), fetchGroceries()]);
     recipesCache = recipes;
     groceriesCache = groceries;
+    populateRecipeIngredientFilterOptions();
     renderRecipeGrid();
   }
 
@@ -1207,7 +1236,9 @@
     }
 
     const query = recipeSearch.value.trim().toLowerCase();
-    const filtered = recipesCache.filter(r => r.name.toLowerCase().includes(query));
+    const ingredientFilter = recipeIngredientFilter.value;
+    let filtered = recipesCache.filter(r => r.name.toLowerCase().includes(query));
+    if(ingredientFilter) filtered = filtered.filter(r => r.ingredientItems.includes(ingredientFilter));
 
     if(filtered.length === 0){
       container.innerHTML = `<div class="empty-state"><p>No recipes match your search.</p></div>`;
@@ -1238,6 +1269,8 @@
     });
     container.querySelectorAll('.item-delete').forEach(btn => {
       btn.addEventListener('click', async () => {
+        const recipe = recipesCache.find(r => r.id === btn.dataset.id);
+        if(!confirm(`Delete "${recipe ? recipe.name : 'this recipe'}"? This can't be undone.`)) return;
         btn.disabled = true;
         await deleteRecipe(btn.dataset.id);
         renderRecipes();
@@ -1246,6 +1279,7 @@
   }
 
   recipeSearch.addEventListener('input', renderRecipeGrid);
+  recipeIngredientFilter.addEventListener('change', renderRecipeGrid);
 
   // ---- Add/edit recipe modal ----
   const recipeOverlay = document.getElementById('recipeModalOverlay');
@@ -1301,14 +1335,14 @@
 
     const q = query.trim().toLowerCase();
     const filtered = Array.from(distinct.entries()).filter(([key]) => key.includes(q));
+    // Already-checked ingredients float to the top so they stay visible as you keep picking.
+    filtered.sort((a, b) => (selectedIngredientItems.has(b[0]) ? 1 : 0) - (selectedIngredientItems.has(a[0]) ? 1 : 0));
 
     ingredientPickerList.innerHTML = filtered.map(([key, rep]) => `
       <label class="picker-item">
         <input type="checkbox" value="${escapeHtml(key)}" ${selectedIngredientItems.has(key) ? 'checked' : ''}>
-        <div>
-          <div class="picker-name">${escapeHtml(displayItemKey(key))}</div>
-          <div class="picker-sub">${priceLabel(rep)} · ${categoryLabel(rep)}</div>
-        </div>
+        <span class="picker-name" style="flex:1;">${escapeHtml(displayItemKey(key))}</span>
+        <span class="picker-sub">${priceLabel(rep)} · ${categoryLabel(rep)}</span>
       </label>`).join('');
 
     ingredientPickerList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
@@ -1354,7 +1388,8 @@
 
   document.getElementById('openRecipeModalBtn').addEventListener('click', () => openRecipeModal());
   document.getElementById('cancelRecipeModalBtn').addEventListener('click', closeRecipeModal);
-  recipeOverlay.addEventListener('click', (e) => { if(e.target === recipeOverlay) closeRecipeModal(); });
+  // Deliberately no click-outside-to-close here — a recipe in progress (name typed,
+  // ingredients picked) is too easy to lose with a stray click on the backdrop.
 
   recipeForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1383,6 +1418,23 @@
 
   // ---- Groceries page ----
   const grocerySearch = document.getElementById('grocerySearch');
+  const grocerySortSelect = document.getElementById('grocerySort');
+
+  function sortGroceries(items){
+    const [field, dir] = grocerySortSelect.value.split('-');
+    const mul = dir === 'desc' ? -1 : 1;
+    const sorted = [...items];
+    sorted.sort((a, b) => {
+      let av, bv;
+      if(field === 'price'){ av = Number(a.price); bv = Number(b.price); }
+      else if(field === 'category'){ av = categoryLabel(a).toLowerCase(); bv = categoryLabel(b).toLowerCase(); }
+      else { av = displayName(a).toLowerCase(); bv = displayName(b).toLowerCase(); }
+      if(av < bv) return -1 * mul;
+      if(av > bv) return 1 * mul;
+      return 0;
+    });
+    return sorted;
+  }
 
   async function renderGroceries(){
     const container = document.getElementById('groceryContainer');
@@ -1417,7 +1469,7 @@
     }
 
     const query = grocerySearch.value.trim().toLowerCase();
-    const filtered = groceriesCache.filter(g => displayName(g).toLowerCase().includes(query));
+    const filtered = sortGroceries(groceriesCache.filter(g => displayName(g).toLowerCase().includes(query)));
 
     if(filtered.length === 0){
       container.innerHTML = `<div class="empty-state"><p>No items match your search.</p></div>`;
@@ -1450,6 +1502,8 @@
     });
     container.querySelectorAll('.item-delete').forEach(btn => {
       btn.addEventListener('click', async () => {
+        const item = groceriesCache.find(g => g.id === btn.dataset.id);
+        if(!confirm(`Delete "${item ? displayName(item) : 'this item'}"? This can't be undone.`)) return;
         btn.disabled = true;
         await deleteGrocery(btn.dataset.id);
         renderGroceries();
@@ -1458,6 +1512,7 @@
   }
 
   grocerySearch.addEventListener('input', renderGroceryGrid);
+  grocerySortSelect.addEventListener('change', renderGroceryGrid);
 
   // ---- Add/edit grocery item modal ----
   const groceryOverlay = document.getElementById('groceryModalOverlay');
