@@ -323,20 +323,25 @@
   .qty-input:focus{outline:none; border-color:var(--sage);}
 
   /* ---------- GROCERY LIST (per meal plan) ---------- */
+  .glist-section{margin-bottom:22px;}
+  .glist-section-title{
+    font-size:0.78rem; font-weight:800; color:var(--text-soft); text-transform:uppercase;
+    letter-spacing:0.4px; margin-bottom:10px; padding-left:4px;
+  }
   .glist-container{
     background:var(--white); border-radius:var(--radius-md); padding:6px 22px; box-shadow:var(--shadow);
   }
-  .glist-row{padding:14px 0; border-bottom:1px solid #F2ECE4;}
+  .glist-row{padding:14px 0; border-bottom:1px solid #F2ECE4; cursor:grab;}
   .glist-row:last-child{border-bottom:none;}
-  .glist-main{display:flex; align-items:center; gap:12px;}
+  .glist-row.dragging{opacity:0.35;}
+  .glist-main{display:flex; align-items:center; gap:10px;}
   .glist-check{width:20px; height:20px; flex-shrink:0;}
-  .glist-thumb{width:40px; height:40px; border-radius:10px; object-fit:cover; background:var(--cream); flex-shrink:0;}
-  .glist-thumb-placeholder{
-    width:40px; height:40px; border-radius:10px; background:var(--cream); flex-shrink:0;
-    display:flex; align-items:center; justify-content:center; font-size:1.1rem;
+  .glist-name{
+    flex:1; min-width:0; font-weight:700; font-size:0.92rem;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
-  .glist-name{flex:1; font-weight:700; font-size:0.92rem;}
-  .glist-price{font-weight:700; color:var(--berry); font-family:'Quicksand'; min-width:78px; text-align:right;}
+  .glist-qty{width:56px; flex-shrink:0; padding:6px 3px; font-size:0.82rem;}
+  .glist-price{font-weight:700; color:var(--berry); font-family:'Quicksand'; min-width:70px; flex-shrink:0; text-align:right;}
   .glist-remove{
     background:none; border:none; color:var(--text-soft); cursor:pointer; font-size:1rem;
     padding:4px 6px; border-radius:8px; flex-shrink:0;
@@ -346,10 +351,15 @@
   .glist-row.checked{opacity:0.6;}
   .glist-used-toggle{
     background:none; border:none; color:var(--text-soft); font-size:0.78rem; font-weight:700;
-    cursor:pointer; padding:6px 0 0 52px;
+    cursor:pointer; padding:6px 0 0 32px;
   }
   .glist-used-toggle:hover{color:var(--sage-dark);}
-  .glist-used-list{padding:8px 0 0 52px; display:flex; flex-wrap:wrap; gap:6px;}
+  .glist-used-list{padding:8px 0 0 32px; display:flex; flex-wrap:wrap; gap:6px;}
+  .glist-used-list[hidden]{display:none;}
+  .glist-warning{
+    background:#FDEEEA; color:var(--berry); border:1.5px solid #F7C9BE; border-radius:12px;
+    padding:12px 16px; font-size:0.85rem; font-weight:700; margin-bottom:18px;
+  }
   .glist-total{
     display:flex; justify-content:flex-end; align-items:baseline; gap:10px;
     padding:18px 4px 0; font-size:1rem; font-weight:700;
@@ -426,6 +436,7 @@
       </div>
       <button class="nav-add" id="openAddGlistItemBtn">+ Add item</button>
     </div>
+    <input type="text" class="search-bar" id="glistSearch" placeholder="Search this list…">
     <div id="groceryListContainer">Loading…</div>
   </section>
 </main>
@@ -767,41 +778,53 @@
     return recipe ? recipe.name : null;
   }
 
-  function mealCellHtml(plan, date, type){
+  // Meal plans open in read-only view by default; a plan enters this set while its
+  // "Edit meals" button is active, revealing the "+" add-recipe buttons on its cells.
+  let editModePlans = new Set();
+  // Global display preference — collapsed by default, applies to every plan's table.
+  let breakfastCollapsed = true;
+
+  function mealCellHtml(plan, date, type, isEditing){
     const entries = ((plan.meals || {})[date] || {})[type] || [];
     const chips = entries.map(entry => recipeName(entry.recipeId)).filter(Boolean)
       .map(name => `<span class="meal-chip">${escapeHtml(name)}</span>`).join('');
-    return `<div class="meal-cell">
-      ${chips}
-      <button type="button" class="meal-add-btn" title="Add recipes"
-        data-plan="${plan.id}" data-date="${date}" data-type="${type}">+</button>
-    </div>`;
+    const addBtn = isEditing
+      ? `<button type="button" class="meal-add-btn" title="Add recipes"
+          data-plan="${plan.id}" data-date="${date}" data-type="${type}">+</button>`
+      : '';
+    return `<div class="meal-cell">${chips}${addBtn}</div>`;
   }
 
-  function mealTableHtml(plan){
+  function mealTableHtml(plan, isEditing){
     const dates = dateRange(plan.fromDate, plan.toDate);
-    const rows = MEAL_TYPES.map(type => `
+    const visibleTypes = breakfastCollapsed ? MEAL_TYPES.filter(t => t !== 'breakfast') : MEAL_TYPES;
+
+    const rows = dates.map(date => `
       <tr>
-        <th>${type[0].toUpperCase()}${type.slice(1)}</th>
-        ${dates.map(date => `<td>${mealCellHtml(plan, date, type)}</td>`).join('')}
+        <th>${formatDayHeader(date)}</th>
+        ${visibleTypes.map(type => `<td>${mealCellHtml(plan, date, type, isEditing)}</td>`).join('')}
       </tr>`).join('');
 
     return `
+      <div style="margin-bottom:10px;">
+        <button type="button" class="btn-secondary breakfast-toggle-btn" style="padding:8px 16px; font-size:0.82rem;">
+          ${breakfastCollapsed ? '▸ Show Breakfast' : '▾ Hide Breakfast'}
+        </button>
+      </div>
       <div class="table-scroll">
         <table class="meal-table">
-          <thead><tr><th></th>${dates.map(d => `<th>${formatDayHeader(d)}</th>`).join('')}</tr></thead>
+          <thead><tr><th></th>${visibleTypes.map(t => `<th>${t[0].toUpperCase()}${t.slice(1)}</th>`).join('')}</tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>`;
   }
 
   async function renderPlans(){
-    const list = document.getElementById('planList');
     const syncStatus = document.getElementById('syncStatus');
 
     if(!getStorageUrl()){
       syncStatus.style.display = 'none';
-      list.innerHTML = `
+      document.getElementById('planList').innerHTML = `
         <div class="empty-state">
           <div class="big">🔌</div>
           <h3>Storage isn't set up yet</h3>
@@ -817,6 +840,13 @@
     recipesCache = recipes;
     groceriesCache = groceries;
     plansCache = plans.sort((a,b) => b.createdAt - a.createdAt);
+    renderPlanCards();
+  }
+
+  // Rebuilds the plan cards from already-fetched caches — used after a pure UI-state
+  // change (toggling edit mode or the breakfast column) so it doesn't need a refetch.
+  function renderPlanCards(){
+    const list = document.getElementById('planList');
     list.innerHTML = '';
 
     if(plansCache.length === 0){
@@ -833,6 +863,7 @@
 
     plansCache.forEach((plan, i) => {
       const days = Math.round((new Date(plan.toDate) - new Date(plan.fromDate)) / (1000*60*60*24)) + 1;
+      const isEditing = editModePlans.has(plan.id);
       const card = document.createElement('div');
       card.className = 'plan-card' + (i === 0 ? ' latest' : '');
       card.innerHTML = `
@@ -852,8 +883,9 @@
             <button class="plan-delete" title="Delete plan" data-id="${plan.id}">✕</button>
           </div>
         </div>
-        ${mealTableHtml(plan)}
-        <div style="margin-top:18px; display:flex; justify-content:flex-end;">
+        ${mealTableHtml(plan, isEditing)}
+        <div style="margin-top:18px; display:flex; justify-content:flex-end; gap:10px;">
+          <button class="btn-secondary edit-plan-btn" data-plan="${plan.id}">${isEditing ? '💾 Save' : '✏️ Edit meals'}</button>
           <button class="btn-secondary view-grocery-list-btn" data-plan="${plan.id}">📋 View Grocery List</button>
         </div>
       `;
@@ -879,6 +911,22 @@
 
     list.querySelectorAll('.view-grocery-list-btn').forEach(btn => {
       btn.addEventListener('click', () => openGroceryListView(btn.dataset.plan));
+    });
+
+    list.querySelectorAll('.edit-plan-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const planId = btn.dataset.plan;
+        if(editModePlans.has(planId)) editModePlans.delete(planId);
+        else editModePlans.add(planId);
+        renderPlanCards();
+      });
+    });
+
+    list.querySelectorAll('.breakfast-toggle-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        breakfastCollapsed = !breakfastCollapsed;
+        renderPlanCards();
+      });
     });
   }
 
@@ -1643,6 +1691,7 @@
     const container = document.getElementById('groceryListContainer');
     container.innerHTML = 'Loading…';
     document.getElementById('groceryListSubtitle').textContent = '';
+    document.getElementById('glistSearch').value = '';
 
     if(!getStorageUrl()){
       container.innerHTML = `
@@ -1696,6 +1745,19 @@
     if(saved) groceryListCache = saved;
   }
 
+  const GLIST_CATEGORY_GROUPS = [
+    { key: 'market', label: 'Market' },
+    { key: 'food', label: 'Grocery Store · Food' },
+    { key: 'toiletries', label: 'Grocery Store · Toiletries' },
+  ];
+
+  function glistCategoryKey(g){
+    if(g.category === 'market') return 'market';
+    return g.subCategory === 'toiletries' ? 'toiletries' : 'food';
+  }
+
+  let glistDragItemId = null;
+
   function renderGroceryListItems(){
     const container = document.getElementById('groceryListContainer');
     if(!groceryListCache){ container.innerHTML = ''; return; }
@@ -1711,21 +1773,20 @@
       return;
     }
 
+    const query = document.getElementById('glistSearch').value.trim().toLowerCase();
     let total = 0;
-    const rows = items.map(entry => {
-      const grocery = groceriesCache.find(g => g.id === entry.itemId);
-      if(!grocery) return '';
+    const zeroPriceNames = [];
+
+    function rowHtml(entry, grocery){
       const isKg = grocery.pricingUnit === 'kg';
       const lineTotal = Number(grocery.price) * entry.quantity;
       total += lineTotal;
+      if(!Number(grocery.price)) zeroPriceNames.push(displayName(grocery));
       const usedNames = entry.recipeIds.map(recipeName).filter(Boolean);
       return `
-        <div class="glist-row ${entry.checked ? 'checked' : ''}">
+        <div class="glist-row ${entry.checked ? 'checked' : ''}" draggable="true" data-item="${entry.itemId}">
           <div class="glist-main">
             <input type="checkbox" class="glist-check" data-item="${entry.itemId}" ${entry.checked ? 'checked' : ''}>
-            ${grocery.thumbnail
-              ? `<img class="glist-thumb" src="${grocery.thumbnail}" alt="">`
-              : `<div class="glist-thumb-placeholder">🛒</div>`}
             <div class="glist-name">${escapeHtml(displayName(grocery))}${isKg ? ' <span class="picker-sub">(kg)</span>' : ''}</div>
             <input type="number" class="qty-input glist-qty" min="0" step="${isKg ? '0.1' : '1'}" value="${entry.quantity}" data-item="${entry.itemId}">
             <div class="glist-price">₱${lineTotal.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
@@ -1738,11 +1799,38 @@
               : '<span class="picker-sub">Not used in any recipe — added manually.</span>'}
           </div>
         </div>`;
+    }
+
+    const sections = GLIST_CATEGORY_GROUPS.map(({ key, label }) => {
+      const bucket = [];
+      items.forEach(entry => {
+        const grocery = groceriesCache.find(g => g.id === entry.itemId);
+        if(!grocery || glistCategoryKey(grocery) !== key) return;
+        if(query && !displayName(grocery).toLowerCase().includes(query)) return;
+        bucket.push({ entry, grocery });
+      });
+      if(bucket.length === 0) return '';
+
+      // Stable sort — unchecked items keep their stored order, checked ones move after them.
+      bucket.sort((a, b) => (a.entry.checked ? 1 : 0) - (b.entry.checked ? 1 : 0));
+
+      return `<div class="glist-section">
+        <div class="glist-section-title">${label}</div>
+        <div class="glist-container">${bucket.map(({ entry, grocery }) => rowHtml(entry, grocery)).join('')}</div>
+      </div>`;
     }).join('');
 
-    container.innerHTML = `
-      <div class="glist-container">${rows}</div>
-      <div class="glist-total">Total <strong>₱${total.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</strong></div>`;
+    if(!sections){
+      container.innerHTML = `<div class="empty-state"><p>No items match your search.</p></div>`;
+      return;
+    }
+
+    const warning = zeroPriceNames.length > 0
+      ? `<div class="glist-warning">⚠️ Price might be inaccurate due to ${zeroPriceNames.map(escapeHtml).join(', ')} having 0 price.</div>`
+      : '';
+
+    container.innerHTML = warning + sections +
+      `<div class="glist-total">Total <strong>₱${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></div>`;
 
     container.querySelectorAll('.glist-check').forEach(cb => {
       cb.addEventListener('change', async () => {
@@ -1778,6 +1866,44 @@
         panel.hidden = !panel.hidden;
       });
     });
+
+    // Drag-and-drop reordering — only within the same category section.
+    container.querySelectorAll('.glist-row').forEach(row => {
+      row.addEventListener('dragstart', () => {
+        glistDragItemId = row.dataset.item;
+        row.classList.add('dragging');
+      });
+      row.addEventListener('dragend', () => {
+        row.classList.remove('dragging');
+        glistDragItemId = null;
+      });
+      row.addEventListener('dragover', (e) => {
+        if(!glistDragItemId || glistDragItemId === row.dataset.item) return;
+        const sourceGrocery = groceriesCache.find(g => g.id === glistDragItemId);
+        const targetGrocery = groceriesCache.find(g => g.id === row.dataset.item);
+        if(!sourceGrocery || !targetGrocery || glistCategoryKey(sourceGrocery) !== glistCategoryKey(targetGrocery)) return;
+        e.preventDefault();
+      });
+      row.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        const targetId = row.dataset.item;
+        if(!glistDragItemId || glistDragItemId === targetId) return;
+
+        const sourceGrocery = groceriesCache.find(g => g.id === glistDragItemId);
+        const targetGrocery = groceriesCache.find(g => g.id === targetId);
+        if(!sourceGrocery || !targetGrocery || glistCategoryKey(sourceGrocery) !== glistCategoryKey(targetGrocery)) return;
+
+        const list = groceryListCache.items;
+        const fromIdx = list.findIndex(i => i.itemId === glistDragItemId);
+        if(fromIdx === -1) return;
+        const [moved] = list.splice(fromIdx, 1);
+        const toIdx = list.findIndex(i => i.itemId === targetId);
+        list.splice(toIdx === -1 ? list.length : toIdx, 0, moved);
+
+        await persistGroceryList();
+        renderGroceryListItems();
+      });
+    });
   }
 
   document.getElementById('backToPlansBtn').addEventListener('click', () => {
@@ -1787,6 +1913,8 @@
     showView('plans');
     renderPlans();
   });
+
+  document.getElementById('glistSearch').addEventListener('input', renderGroceryListItems);
 
   // ---- Add items to the grocery list ----
   const addGlistOverlay = document.getElementById('addGlistItemOverlay');
