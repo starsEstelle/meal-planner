@@ -1673,9 +1673,20 @@
       `${formatDate(plan.fromDate)} – ${formatDate(plan.toDate)}`;
 
     let listDoc = await fetchGroceryList(planId);
+    const required = computeInitialGroceryItems(plan);
+
     if(!listDoc){
-      listDoc = await saveGroceryList(planId, computeInitialGroceryItems(plan));
+      listDoc = await saveGroceryList(planId, required);
+    }else{
+      // Merge in anything newly required by the plan's recipes since the list was last
+      // generated — without touching items you've already checked off or hand-edited.
+      const existingIds = new Set(listDoc.items.map(i => i.itemId));
+      const missing = required.filter(r => !existingIds.has(r.itemId));
+      if(missing.length > 0){
+        listDoc = await saveGroceryList(planId, [...listDoc.items, ...missing]);
+      }
     }
+
     groceryListCache = listDoc;
     renderGroceryListItems();
   }
