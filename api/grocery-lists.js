@@ -4,6 +4,7 @@
 require('dotenv').config({ path: '.env.local' });
 const { MongoClient } = require('mongodb');
 const { URL } = require('url');
+const { requireAuth } = require('./_auth');
 
 const DB_NAME = process.env.MONGODB_DB || 'mealplanner';
 const COLLECTION = 'groceryLists';
@@ -35,6 +36,8 @@ module.exports = async function handler(req, res) {
     res.status(204).end();
     return;
   }
+
+  if (!requireAuth(req, res)) return;
 
   try {
     const client = await getClient();

@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Meal Planner</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍽️</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -174,6 +175,13 @@
     font-weight:700; font-size:0.95rem; border:2px solid rgba(0,0,0,0.08);
     cursor:pointer;
   }
+
+  /* ---------- LOGIN GATE ---------- */
+  #loginGate{
+    position:fixed; inset:0; background:var(--cream); z-index:300;
+    display:none; align-items:center; justify-content:center; padding:20px;
+  }
+  #loginGate.open{display:flex;}
 
   /* ---------- MODAL ---------- */
   .modal-overlay{
@@ -389,12 +397,32 @@
     padding:18px 4px 0; font-size:1rem; font-weight:700;
   }
   .glist-total strong{font-size:1.3rem; font-family:'Quicksand'; color:var(--berry);}
+  .glist-breakdown{
+    display:flex; justify-content:flex-end; gap:18px; flex-wrap:wrap;
+    padding:4px 4px 0; font-size:0.8rem; color:var(--text-soft);
+  }
+  .glist-breakdown strong{color:var(--text); font-weight:700;}
 
   footer{padding:40px 24px 30px; border-top:1px solid #F0E8DC; text-align:center;}
   footer p{color:var(--text-soft); font-size:0.85rem; margin:8px 0 0;}
 </style>
 </head>
 <body>
+
+<div id="loginGate">
+  <div class="modal" style="max-width:360px;">
+    <h2>🍽️ Meal Planner</h2>
+    <p class="modal-sub" style="margin-bottom:20px;">Enter the password to continue.</p>
+    <form id="loginForm">
+      <div class="field">
+        <label for="loginPassword">Password</label>
+        <input type="password" id="loginPassword" required>
+      </div>
+      <div class="field-error" id="loginError">Incorrect password.</div>
+      <button type="submit" class="btn-primary" style="width:100%; margin-top:6px;">Enter</button>
+    </form>
+  </div>
+</div>
 
 <header>
   <nav>
@@ -404,6 +432,7 @@
       <li><a data-view="recipes">Recipes</a></li>
       <li><a data-view="groceries">Groceries</a></li>
       <li><button class="nav-add" id="openModalBtn">+ Add meal plan</button></li>
+      <li><a id="logoutBtn" title="Log out">Log out</a></li>
     </ul>
     <button class="menu-btn" id="menuBtn" aria-label="Toggle menu">☰</button>
   </nav>
@@ -671,6 +700,7 @@
   async function fetchJson(url){
     try{
       const res = await fetch(url);
+      if(res.status === 401){ showLoginGate(); return []; }
       if(!res.ok) throw new Error('Bad response: ' + res.status);
       const data = await res.json();
       setSyncStatus('connected');
@@ -689,6 +719,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
+      if(res.status === 401){ showLoginGate(); return null; }
       if(!res.ok) throw new Error('Bad response: ' + res.status);
       const data = await res.json();
       setSyncStatus('connected');
@@ -1766,6 +1797,26 @@
     return usage;
   }
 
+  // Recipes that explicitly call for 0 of an item — these never cause the item to be
+  // added to the list or count toward its quantity, but if the item's already on the
+  // list for some other reason, it's worth showing they could use it too.
+  function computeZeroUsageRecipes(plan){
+    const zeroUsage = new Map(); // itemId -> Set<recipeId>
+    Object.values(plan.meals || {}).forEach(mealsByType => {
+      Object.values(mealsByType).forEach(entries => {
+        (entries || []).forEach(entry => {
+          if(!recipesCache.some(r => r.id === entry.recipeId)) return;
+          Object.values(entry.quantities || {}).forEach(({ itemId, quantity }) => {
+            if(quantity) return;
+            if(!zeroUsage.has(itemId)) zeroUsage.set(itemId, new Set());
+            zeroUsage.get(itemId).add(entry.recipeId);
+          });
+        });
+      });
+    });
+    return zeroUsage;
+  }
+
   // Meat items are never combined — each recipe using one gets its own separate row
   // instead of being summed into a single line, unlike every other category.
   function computeInitialGroceryItems(plan){
@@ -1993,14 +2044,30 @@
 
     const query = document.getElementById('glistSearch').value.trim().toLowerCase();
     let total = 0;
+    const categoryTotals = { market: 0, food: 0, meat: 0, toiletries: 0 };
     const zeroPriceNames = [];
 
-    function rowHtml(entry, grocery){
+    // Recipes that call for 0 of an item don't add it to the list or affect its quantity,
+    // but if it's already here for another reason, show them too — just marked apart from
+    // the recipes actually contributing to the amount. Not applied to Meat: each meat row
+    // already belongs to one specific recipe, so attaching an unrelated recipe there would
+    // misrepresent whose requirement that row is.
+    const currentPlan = plansCache.find(p => p.id === groceryListCache.planId);
+    const zeroUsage = currentPlan ? computeZeroUsageRecipes(currentPlan) : new Map();
+
+    function rowHtml(entry, grocery, key){
       const isKg = grocery.pricingUnit === 'kg';
       const lineTotal = Number(grocery.price) * entry.quantity;
       total += lineTotal;
+      categoryTotals[key] += lineTotal;
       if(!Number(grocery.price)) zeroPriceNames.push(displayName(grocery));
-      const usedNames = entry.recipeIds.map(recipeName).filter(Boolean);
+
+      const contributingNames = entry.recipeIds.map(recipeName).filter(Boolean);
+      const zeroNames = key === 'meat' ? [] : Array.from(zeroUsage.get(entry.itemId) || [])
+        .filter(rid => !entry.recipeIds.includes(rid))
+        .map(recipeName).filter(Boolean);
+      const usedCount = contributingNames.length + zeroNames.length;
+
       return `
         <div class="glist-row ${entry.checked ? 'checked' : ''}" data-row="${entry.id}">
           <div class="glist-main">
@@ -2011,10 +2078,11 @@
             <div class="glist-price">₱${lineTotal.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
             <button type="button" class="glist-remove" title="Remove item" data-row="${entry.id}">✕</button>
           </div>
-          <button type="button" class="glist-used-toggle" data-row="${entry.id}">Used in ${usedNames.length} recipe${usedNames.length === 1 ? '' : 's'} ▾</button>
+          <button type="button" class="glist-used-toggle" data-row="${entry.id}">Used in ${usedCount} recipe${usedCount === 1 ? '' : 's'} ▾</button>
           <div class="glist-used-list" id="glist-used-${entry.id}" hidden>
-            ${usedNames.length
-              ? usedNames.map(n => `<span class="meal-chip">${escapeHtml(n)}</span>`).join('')
+            ${usedCount
+              ? contributingNames.map(n => `<span class="meal-chip">${escapeHtml(n)}</span>`).join('')
+                + zeroNames.map(n => `<span class="meal-chip" title="Needs 0 of this for this meal">${escapeHtml(n)} (0)</span>`).join('')
               : '<span class="picker-sub">Not used in any recipe — added manually.</span>'}
           </div>
         </div>`;
@@ -2035,7 +2103,7 @@
 
       return `<div class="glist-section">
         <div class="glist-section-title">${label}</div>
-        <div class="glist-container">${bucket.map(({ entry, grocery }) => rowHtml(entry, grocery)).join('')}</div>
+        <div class="glist-container">${bucket.map(({ entry, grocery }) => rowHtml(entry, grocery, key)).join('')}</div>
       </div>`;
     }).join('');
 
@@ -2048,8 +2116,15 @@
       ? `<div class="glist-warning">⚠️ Price might be inaccurate due to ${zeroPriceNames.map(escapeHtml).join(', ')} having 0 price.</div>`
       : '';
 
-    container.innerHTML = warning + sections +
-      `<div class="glist-total">Total <strong>₱${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></div>`;
+    const peso = n => `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const groceryStoreTotal = categoryTotals.food + categoryTotals.meat + categoryTotals.toiletries;
+
+    container.innerHTML = warning + sections + `
+      <div class="glist-total">Total <strong>${peso(total)}</strong></div>
+      <div class="glist-breakdown">
+        <span>Market <strong>${peso(categoryTotals.market)}</strong></span>
+        <span>Grocery Store <strong>${peso(groceryStoreTotal)}</strong></span>
+      </div>`;
 
     container.querySelectorAll('.glist-check').forEach(cb => {
       cb.addEventListener('change', () => {
@@ -2241,7 +2316,63 @@
     }
   });
 
-  initRoute();
+  // ---- Login gate: a single shared password protects every API route (see api/_auth.js).
+  // Sessions slide — each authenticated request quietly extends the cookie another week,
+  // so only a week of inactivity on that specific device logs it out. ----
+  const loginGate = document.getElementById('loginGate');
+  const loginForm = document.getElementById('loginForm');
+  const loginError = document.getElementById('loginError');
+
+  function showLoginGate(){ loginGate.classList.add('open'); }
+  function hideLoginGate(){ loginGate.classList.remove('open'); }
+
+  async function checkAuth(){
+    try{
+      const res = await fetch('/api/login');
+      const data = await res.json();
+      return Boolean(data.authenticated);
+    }catch(err){
+      return false;
+    }
+  }
+
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    loginError.style.display = 'none';
+    const submitBtn = loginForm.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+
+    try{
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: document.getElementById('loginPassword').value })
+      });
+      if(res.ok){
+        document.getElementById('loginPassword').value = '';
+        hideLoginGate();
+        initRoute();
+      }else{
+        const data = await res.json().catch(() => ({}));
+        loginError.textContent = data.error || 'Incorrect password.';
+        loginError.style.display = 'block';
+      }
+    }catch(err){
+      loginError.textContent = 'Could not reach the server. Try again.';
+      loginError.style.display = 'block';
+    }
+    submitBtn.disabled = false;
+  });
+
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    await postJson('/api/login', { action: 'logout' });
+    showLoginGate();
+  });
+
+  (async () => {
+    if(await checkAuth()) initRoute();
+    else showLoginGate();
+  })();
 </script>
 
 </body>

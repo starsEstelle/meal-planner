@@ -4,6 +4,7 @@
 // can share one recipe. Mirrors api/recipes.js and api/plans.js.
 require('dotenv').config({ path: '.env.local' });
 const { MongoClient } = require('mongodb');
+const { requireAuth } = require('./_auth');
 
 const DB_NAME = process.env.MONGODB_DB || 'mealplanner';
 const COLLECTION = 'groceries';
@@ -50,6 +51,8 @@ module.exports = async function handler(req, res) {
     res.status(204).end();
     return;
   }
+
+  if (!requireAuth(req, res)) return;
 
   try {
     const client = await getClient();
