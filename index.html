@@ -319,6 +319,12 @@
   .meal-chip-remove:hover{color:var(--berry); background:var(--cream);}
   .meal-chip-linked{cursor:pointer; display:inline-block; transition:background 0.15s ease, color 0.15s ease;}
   .meal-chip-linked:hover{background:var(--peach); color:var(--text);}
+  .meal-chip-view-wrap{display:inline-flex; align-items:center; gap:2px;}
+  .meal-chip-warning{
+    background:none; border:none; cursor:pointer; font-size:0.82rem; line-height:1;
+    padding:2px; flex-shrink:0; transition:transform 0.15s ease;
+  }
+  .meal-chip-warning:hover{transform:scale(1.2);}
   .meal-made-wrap{
     display:inline-flex; align-items:center; gap:5px; cursor:pointer;
   }
@@ -352,6 +358,14 @@
   .qty-recipe-group{margin-bottom:18px;}
   .qty-recipe-group:last-child{margin-bottom:0;}
   .qty-recipe-name{font-weight:700; font-size:0.92rem; margin-bottom:8px; color:var(--sage-dark);}
+  .qty-new-badge{
+    display:inline-block; font-size:0.68rem; font-weight:800; color:var(--peach-dark);
+    background:#FFF0E4; padding:2px 8px; border-radius:999px; vertical-align:middle;
+  }
+  .qty-recipe-warning{
+    background:#FFF0E4; color:var(--peach-dark); border:1.5px solid #FBD9BC; border-radius:12px;
+    padding:10px 14px; font-size:0.82rem; font-weight:600; margin-bottom:10px;
+  }
   .qty-row{
     display:flex; align-items:center; gap:10px;
     padding:10px 0; border-bottom:1px solid #F2ECE4; flex-wrap:wrap;
@@ -948,15 +962,45 @@
   // a cleaner read-only view — purely cosmetic, the underlying made state is untouched.
   let mealMadeCheckboxesHidden = true;
 
+  // Ingredients with no purchasable grocery variant never get a row in the quantities
+  // modal (and never get saved into a slot's quantities), so they're excluded here too —
+  // otherwise a recipe with one such ingredient would show as "changed" forever, with no
+  // way to resolve it.
+  function purchasableIngredientKeys(recipe){
+    return (recipe.ingredientItems || []).filter(key =>
+      groceriesCache.some(g => normalizeItemKey(g.item) === key));
+  }
+
+  // True once the recipe's current ingredients no longer match what was actually saved
+  // into this meal slot — i.e. an ingredient was added to or removed from the recipe since
+  // whoever last confirmed this meal's quantities. Surfaces as a warning icon the user can
+  // click to jump straight into reviewing/resaving quantities for that slot.
+  function recipeIngredientsChangedSinceSaved(entry, recipe){
+    const currentKeys = purchasableIngredientKeys(recipe);
+    const savedKeys = Object.keys(entry.quantities || {});
+    if(currentKeys.length !== savedKeys.length) return true;
+    const savedSet = new Set(savedKeys);
+    return currentKeys.some(key => !savedSet.has(key));
+  }
+
   function mealCellHtml(plan, date, type, isEditing){
     const entries = ((plan.meals || {})[date] || {})[type] || [];
     const chips = entries.map(entry => ({ entry, recipe: recipesCache.find(r => r.id === entry.recipeId) }))
       .filter(x => x.recipe)
       .map(({ entry, recipe }) => {
+        // Reused in both modes — clicking it jumps straight into this slot's quantities
+        // editor, same as clicking the chip itself, so the user can review what changed.
+        const warningBtn = recipeIngredientsChangedSinceSaved(entry, recipe)
+          ? `<button type="button" class="meal-chip-warning"
+              title="${escapeHtml(recipe.name)}'s ingredients changed since this meal's quantities were last set — click to review"
+              data-plan="${plan.id}" data-date="${date}" data-type="${type}">⚠️</button>`
+          : '';
+
         if(isEditing){
           return `<span class="meal-chip-editable-wrap">
               <span class="meal-chip meal-chip-editable" title="Edit quantities"
                   data-plan="${plan.id}" data-date="${date}" data-type="${type}">${escapeHtml(recipe.name)}</span>
+              ${warningBtn}
               <button type="button" class="meal-chip-remove" title="Remove ${escapeHtml(recipe.name)} from this meal"
                   data-plan="${plan.id}" data-date="${date}" data-type="${type}" data-recipe="${entry.recipeId}">✕</button>
             </span>`;
@@ -972,13 +1016,16 @@
         // the meal is done, not that the recipe itself changes, so it saves immediately.
         // Hiding the checkboxes (mealMadeCheckboxesHidden) is purely cosmetic — the made
         // state itself is untouched, just not shown or struck through while hidden.
-        if(mealMadeCheckboxesHidden) return chip;
-        return `<label class="meal-made-wrap ${entry.made ? 'made' : ''}" title="Mark as made this week">
-            <input type="checkbox" class="meal-made-check"
-                data-plan="${plan.id}" data-date="${date}" data-type="${type}" data-recipe="${entry.recipeId}"
-                ${entry.made ? 'checked' : ''}>
-            ${chip}
-          </label>`;
+        if(mealMadeCheckboxesHidden) return `<span class="meal-chip-view-wrap">${chip}${warningBtn}</span>`;
+        return `<span class="meal-chip-view-wrap">
+            <label class="meal-made-wrap ${entry.made ? 'made' : ''}" title="Mark as made this week">
+              <input type="checkbox" class="meal-made-check"
+                  data-plan="${plan.id}" data-date="${date}" data-type="${type}" data-recipe="${entry.recipeId}"
+                  ${entry.made ? 'checked' : ''}>
+              ${chip}
+            </label>
+            ${warningBtn}
+          </span>`;
       })
       .join('');
     const addBtn = isEditing
@@ -1065,7 +1112,23 @@
     recipesCache = recipes;
     groceriesCache = groceries;
     plansCache = plans.sort((a,b) => b.createdAt - a.createdAt);
+    plansCache.forEach(pruneOrphanedMealEntries);
     renderPlanCards();
+  }
+
+  // A deleted recipe already disappears from view (mealCellHtml filters it out) and from
+  // the grocery list (computeRequiredGroceryUsage skips it) — but the dangling entry was
+  // never actually removed from the plan's stored data. Clean it out once per fresh load.
+  function pruneOrphanedMealEntries(plan){
+    Object.entries(plan.meals || {}).forEach(([date, mealsByType]) => {
+      Object.entries(mealsByType || {}).forEach(([type, entries]) => {
+        const kept = (entries || []).filter(entry => recipesCache.some(r => r.id === entry.recipeId));
+        if(kept.length !== (entries || []).length){
+          mealsByType[type] = kept;
+          updateMealEntries(plan.id, date, type, kept); // persist the cleanup in the background
+        }
+      });
+    });
   }
 
   // Rebuilds the plan cards from already-fetched caches — used after a pure UI-state
@@ -1146,6 +1209,12 @@
         const recipe = recipesCache.find(r => r.id === btn.dataset.recipe);
         if(!confirm(`Remove ${recipe ? recipe.name : 'this meal'} from ${btn.dataset.type} on ${formatDayHeader(btn.dataset.date)}?`)) return;
         removeMealEntry(btn.dataset.plan, btn.dataset.date, btn.dataset.type, btn.dataset.recipe);
+      });
+    });
+
+    list.querySelectorAll('.meal-chip-warning').forEach(btn => {
+      btn.addEventListener('click', () => {
+        openQuantitiesForSlot(btn.dataset.plan, btn.dataset.date, btn.dataset.type);
       });
     });
 
@@ -1435,6 +1504,9 @@
     quantitiesList.innerHTML = recipeIds.map(rid => {
       const recipe = recipesCache.find(r => r.id === rid);
       if(!recipe) return '';
+      // A slot the recipe was already assigned to before (has a saved quantities snapshot
+      // to compare against) vs. a fresh pick — only the former can have "changed since".
+      const isExistingAssignment = existingByRecipe.has(rid);
       const prevQuantities = existingByRecipe.get(rid) || {};
 
       const rows = recipe.ingredientItems.map(itemKey => {
@@ -1442,6 +1514,7 @@
         if(variants.length === 0) return '';
 
         const prev = prevQuantities[itemKey]; // { itemId, quantity, doubleCheck } | undefined
+        const isNewlyAdded = isExistingAssignment && !prev;
         const selectedVariantId = (prev && variants.some(v => v.id === prev.itemId)) ? prev.itemId : variants[0].id;
         const selectedVariant = variants.find(v => v.id === selectedVariantId);
         const qty = prev ? prev.quantity : 1;
@@ -1452,7 +1525,9 @@
         ).join('');
 
         return `<div class="qty-row" data-recipe="${rid}" data-item-key="${escapeHtml(itemKey)}">
-          <div class="qty-item-name">${escapeHtml(displayItemKey(itemKey))}</div>
+          <div class="qty-item-name">${escapeHtml(displayItemKey(itemKey))}${isNewlyAdded
+            ? ' <span class="qty-new-badge" title="Added to this recipe since this meal was last saved — set how much you need">⚠️ New</span>'
+            : ''}</div>
           <select class="qty-variant-select">${options}</select>
           <div class="qty-input-wrap">${buildQtyInputWrapHtml(selectedVariant, qty)}</div>
           <label class="qty-doublecheck-label" title="Double check your pantry before buying this">
@@ -1461,8 +1536,21 @@
         </div>`;
       }).join('') || `<div class="picker-sub">No purchasable items available for this recipe's ingredients.</div>`;
 
+      // Ingredients the recipe no longer calls for get no row above (nothing to set a
+      // quantity for) — called out here instead so it's not a silent surprise when saving
+      // drops them from this meal.
+      const currentKeys = purchasableIngredientKeys(recipe);
+      const removedKeys = isExistingAssignment
+        ? Object.keys(prevQuantities).filter(key => !currentKeys.includes(key))
+        : [];
+      const warning = removedKeys.length
+        ? `<div class="qty-recipe-warning">⚠️ No longer in this recipe — will be removed from this meal when you save:
+            ${removedKeys.map(displayItemKey).map(escapeHtml).join(', ')}.</div>`
+        : '';
+
       return `<div class="qty-recipe-group">
         <div class="qty-recipe-name">${escapeHtml(recipe.name)}</div>
+        ${warning}
         ${rows}
       </div>`;
     }).join('');
@@ -2249,6 +2337,7 @@
     plansCache = plans;
     recipesCache = recipes;
     groceriesCache = groceries;
+    plansCache.forEach(pruneOrphanedMealEntries);
 
     const plan = plansCache.find(p => p.id === planId);
     if(!plan){
