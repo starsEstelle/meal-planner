@@ -132,9 +132,11 @@
   }
   .plan-dates{font-weight:700; font-size:1.05rem;}
   .plan-tag{
-    display:inline-block; font-size:0.72rem; font-weight:800; color:var(--sage-dark);
-    background:#E4F0E0; padding:3px 10px; border-radius:999px; margin-left:8px;
-    text-transform:uppercase; letter-spacing:0.4px; vertical-align:middle;
+    position:absolute; top:-11px; left:50%; transform:translateX(-50%);
+    font-size:0.72rem; font-weight:800; color:var(--sage-dark); white-space:nowrap;
+    background:#E4F0E0; padding:4px 14px; border-radius:999px;
+    text-transform:uppercase; letter-spacing:0.4px;
+    box-shadow:0 4px 10px rgba(127,166,135,0.3);
   }
   .plan-sub{font-size:0.85rem; color:var(--text-soft); margin-top:4px;}
   .plan-budget{text-align:right;}
@@ -147,6 +149,11 @@
   .plan-delete:hover{color:var(--berry); background:var(--cream);}
 
   /* ---------- MEAL TABLE ---------- */
+  .meal-toggle-row{margin-bottom:10px; display:flex; gap:8px; flex-wrap:nowrap;}
+  .meal-toggle-btn{
+    flex:1 1 0; min-width:0; padding:8px 16px; font-size:0.82rem;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
   .table-scroll{overflow-x:auto;}
   .meal-table{width:100%; border-collapse:collapse;}
   .meal-table th, .meal-table td{border-bottom:1px solid #F2ECE4; padding:6px 4px;}
@@ -460,18 +467,23 @@
        (not just thead) because Chrome's table-layout:fixed sizes columns from the tbody's
        first row, ignoring widths specified only on the header row. */
     .meal-table{table-layout:fixed;}
-    .meal-table .day-col{width:46px;}
-    .meal-table tbody th{width:46px;}
+    /* Wide enough for "Wed 15"-length day labels to stay on one line (measured ~40px of
+       text at this font, plus padding) — see .meal-table tbody th below, which forces
+       nowrap so the weekday and date never wrap onto separate lines. */
+    .meal-table .day-col{width:56px;}
+    .meal-table tbody th{width:56px;}
     .meal-table.cols-2 thead th:not(.day-col), .meal-table.cols-2 tbody td{width:50%;}
     .meal-table.cols-3 thead th:not(.day-col), .meal-table.cols-3 tbody td{width:33.3334%;}
     .meal-table thead th{min-width:0; font-size:0.64rem; padding:4px 2px; white-space:normal;}
-    .meal-table tbody th{font-size:0.72rem; padding-right:4px; white-space:normal;}
+    .meal-table tbody th{font-size:0.72rem; padding-right:4px; white-space:nowrap;}
     .meal-cell{min-width:0; gap:4px; padding:2px;}
     .meal-chip{
       font-size:0.68rem; padding:4px 7px; white-space:normal;
       overflow-wrap:anywhere; word-break:break-word; min-width:0; max-width:100%;
     }
     .meal-add-btn{width:22px; height:22px; font-size:0.85rem;}
+    /* Scale down rather than wrap — the two toggle buttons stay side by side at any width. */
+    .meal-toggle-btn{padding:7px 8px; font-size:0.68rem;}
   }
 </style>
 </head>
@@ -1016,11 +1028,11 @@
       </tr>`).join('');
 
     return `
-      <div style="margin-bottom:10px; display:flex; gap:10px; flex-wrap:wrap;">
-        <button type="button" class="btn-secondary breakfast-toggle-btn" style="padding:8px 16px; font-size:0.82rem;">
+      <div class="meal-toggle-row">
+        <button type="button" class="btn-secondary meal-toggle-btn breakfast-toggle-btn">
           ${breakfastCollapsed ? '▸ Show Breakfast' : '▾ Hide Breakfast'}
         </button>
-        <button type="button" class="btn-secondary made-checkbox-toggle-btn" style="padding:8px 16px; font-size:0.82rem;">
+        <button type="button" class="btn-secondary meal-toggle-btn made-checkbox-toggle-btn">
           ${mealMadeCheckboxesHidden ? '▸ Show checkboxes' : '▾ Hide checkboxes'}
         </button>
       </div>
@@ -1080,11 +1092,12 @@
       const card = document.createElement('div');
       card.className = 'plan-card' + (i === 0 ? ' latest' : '');
       card.innerHTML = `
+        ${i === 0 ? '<span class="plan-tag">Latest</span>' : ''}
         <div class="plan-header">
           <div class="plan-main">
             <div class="plan-emoji">🍽️</div>
             <div>
-              <div class="plan-dates">${formatDate(plan.fromDate)} – ${formatDate(plan.toDate)}${i === 0 ? '<span class="plan-tag">Latest</span>' : ''}</div>
+              <div class="plan-dates">${formatDate(plan.fromDate)} – ${formatDate(plan.toDate)}</div>
               <div class="plan-sub">${days} day${days === 1 ? '' : 's'}</div>
             </div>
           </div>
