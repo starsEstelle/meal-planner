@@ -26,6 +26,7 @@ function docToRecipe(doc) {
     // not grocery document ids, so any brand variant of that item can be used.
     ingredientItems: doc.ingredientItems || [],
     thumbnail: doc.thumbnail || null,
+    tiktokUrl: doc.tiktokUrl || null,
     createdAt: doc.createdAt,
   };
 }
@@ -66,6 +67,7 @@ module.exports = async function handler(req, res) {
           name: recipe.name,
           ingredientItems: recipe.ingredientItems || [],
           thumbnail: recipe.thumbnail || null,
+          tiktokUrl: recipe.tiktokUrl || null,
           createdAt: recipe.createdAt,
         });
       } else if (body.action === 'update') {
@@ -76,6 +78,7 @@ module.exports = async function handler(req, res) {
             name: recipe.name,
             ingredientItems: recipe.ingredientItems || [],
             thumbnail: recipe.thumbnail || null,
+            tiktokUrl: recipe.tiktokUrl || null,
           } }
         );
       } else if (body.action === 'delete') {

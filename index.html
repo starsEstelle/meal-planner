@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Meal Planner</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍽️</text></svg>">
+
+<!-- iOS "Add to Home Screen": these make it launch full-screen with its own icon and
+     title instead of a plain bookmark that reopens inside Safari's browser chrome. -->
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Meal Planner">
+<meta name="theme-color" content="#FFF8F0">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -231,7 +240,12 @@
   }
   .item-body{padding:16px 18px 18px;}
   .item-name{font-weight:700; font-size:1.02rem; margin:0 0 8px;}
-  .item-actions{position:absolute; top:10px; right:10px; display:flex; gap:6px;}
+  /* Stretched-link pattern: this invisible anchor covers the whole card so clicking
+     anywhere on it opens the recipe's TikTok link, while the edit/delete buttons
+     (stacked above it) keep intercepting their own clicks instead of navigating. */
+  .item-card-link{position:absolute; inset:0; z-index:1;}
+  .item-card:has(.item-card-link):hover{box-shadow:0 14px 34px rgba(180,150,120,0.22);}
+  .item-actions{position:absolute; top:10px; right:10px; display:flex; gap:6px; z-index:2;}
   .item-edit, .item-delete{
     background:rgba(255,255,255,0.9); border:none;
     color:var(--text-soft); cursor:pointer; font-size:0.9rem; width:28px; height:28px;
@@ -290,6 +304,21 @@
   }
   .meal-chip-editable{cursor:pointer; transition:background 0.15s ease, color 0.15s ease;}
   .meal-chip-editable:hover{background:var(--sage); color:white;}
+  .meal-chip-editable-wrap{display:inline-flex; align-items:center; gap:2px;}
+  .meal-chip-remove{
+    background:none; border:none; color:var(--text-soft); cursor:pointer; font-size:0.7rem;
+    padding:2px 5px; border-radius:50%; line-height:1; flex-shrink:0;
+  }
+  .meal-chip-remove:hover{color:var(--berry); background:var(--cream);}
+  .meal-chip-linked{cursor:pointer; display:inline-block; transition:background 0.15s ease, color 0.15s ease;}
+  .meal-chip-linked:hover{background:var(--peach); color:var(--text);}
+  .meal-made-wrap{
+    display:inline-flex; align-items:center; gap:5px; cursor:pointer;
+  }
+  .meal-made-wrap input{width:16px; height:16px; flex-shrink:0; accent-color:var(--sage-dark);}
+  .meal-made-wrap.made .meal-chip{
+    opacity:0.55; text-decoration:line-through; background:var(--cream);
+  }
   .meal-add-btn{
     width:26px; height:26px; border-radius:50%; border:1.5px dashed #D8CFC4; background:none;
     color:var(--text-soft); font-size:1rem; cursor:pointer; line-height:1; flex-shrink:0;
@@ -337,6 +366,11 @@
     width:72px; text-align:center; padding:8px 6px; border-radius:10px; border:1.5px solid #E9DFD2;
     font-family:inherit; font-size:0.9rem; background:var(--white); color:var(--text);
   }
+  .qty-doublecheck-label{
+    display:flex; align-items:center; gap:4px; cursor:pointer; flex-shrink:0;
+    font-size:0.78rem; color:var(--text-soft); font-weight:700;
+  }
+  .qty-doublecheck-label input{width:16px; height:16px; accent-color:var(--peach-dark);}
   .qty-peso-input:focus{outline:none; border-color:var(--sage);}
 
   /* ---------- GROCERY LIST (per meal plan) ---------- */
@@ -358,6 +392,7 @@
     position:relative; z-index:2; background:var(--cream-soft);
   }
   .glist-row.drag-over{background:var(--cream); box-shadow:inset 0 2px 0 var(--sage);}
+  .glist-row.doublecheck{box-shadow:inset 3px 0 0 var(--peach-dark);}
   .glist-main{display:flex; align-items:center; gap:10px;}
   .glist-drag-handle{
     cursor:grab; color:var(--text-soft); font-size:0.9rem; line-height:1; flex-shrink:0;
@@ -367,6 +402,13 @@
   .glist-drag-handle:hover{color:var(--sage-dark);}
   .glist-drag-handle:active{cursor:grabbing; transform:scale(1.2);}
   .glist-check{width:20px; height:20px; flex-shrink:0;}
+  .glist-doublecheck-label{
+    display:flex; align-items:center; gap:3px; cursor:pointer; flex-shrink:0;
+    font-size:0.9rem; opacity:0.55; transition:opacity 0.15s ease;
+  }
+  .glist-doublecheck-label:hover{opacity:0.85;}
+  .glist-doublecheck-label input{width:16px; height:16px; accent-color:var(--peach-dark);}
+  .glist-row.doublecheck .glist-doublecheck-label{opacity:1;}
   .glist-name{
     flex:1; min-width:0; font-weight:700; font-size:0.92rem;
     white-space:normal; word-break:break-word;
@@ -587,6 +629,10 @@
         <button type="button" class="add-ingredient-btn" id="addIngredientGroceryBtn">+ Add new grocery item</button>
       </div>
       <div class="field-error" id="recipeError">Add a name and at least one ingredient.</div>
+      <div class="field">
+        <label for="recipeTiktokUrl">TikTok link (optional)</label>
+        <input type="url" id="recipeTiktokUrl" placeholder="https://www.tiktok.com/@user/video/...">
+      </div>
       <div class="field">
         <label>Thumbnail (optional)</label>
         <div class="thumb-upload">
@@ -870,6 +916,12 @@
     return dates;
   }
 
+  // Only genuine http(s) links are ever rendered as clickable — a cheap guard against a
+  // stray javascript:/data: value ever ending up in the tiktokUrl field.
+  function isSafeHttpUrl(url){
+    return !!url && /^https?:\/\//i.test(url);
+  }
+
   function recipeName(id){
     const recipe = recipesCache.find(r => r.id === id);
     return recipe ? recipe.name : null;
@@ -880,20 +932,77 @@
   let editModePlans = new Set();
   // Global display preference — collapsed by default, applies to every plan's table.
   let breakfastCollapsed = true;
+  // Hides the "made" checkboxes (and, along with them, the made/crossed-out styling) for
+  // a cleaner read-only view — purely cosmetic, the underlying made state is untouched.
+  let mealMadeCheckboxesHidden = true;
 
   function mealCellHtml(plan, date, type, isEditing){
     const entries = ((plan.meals || {})[date] || {})[type] || [];
-    const chips = entries.map(entry => recipeName(entry.recipeId)).filter(Boolean)
-      .map(name => isEditing
-        ? `<span class="meal-chip meal-chip-editable" title="Edit quantities"
-            data-plan="${plan.id}" data-date="${date}" data-type="${type}">${escapeHtml(name)}</span>`
-        : `<span class="meal-chip">${escapeHtml(name)}</span>`)
+    const chips = entries.map(entry => ({ entry, recipe: recipesCache.find(r => r.id === entry.recipeId) }))
+      .filter(x => x.recipe)
+      .map(({ entry, recipe }) => {
+        if(isEditing){
+          return `<span class="meal-chip-editable-wrap">
+              <span class="meal-chip meal-chip-editable" title="Edit quantities"
+                  data-plan="${plan.id}" data-date="${date}" data-type="${type}">${escapeHtml(recipe.name)}</span>
+              <button type="button" class="meal-chip-remove" title="Remove ${escapeHtml(recipe.name)} from this meal"
+                  data-plan="${plan.id}" data-date="${date}" data-type="${type}" data-recipe="${entry.recipeId}">✕</button>
+            </span>`;
+        }
+        // In view mode, a recipe with a saved TikTok link opens as a real <a> tap (not a JS
+        // window.open) — that's what lets the phone's OS hand it to the TikTok app directly
+        // via Universal Links/App Links instead of just opening it in the browser.
+        const chip = isSafeHttpUrl(recipe.tiktokUrl)
+          ? `<a class="meal-chip meal-chip-linked" href="${escapeHtml(recipe.tiktokUrl)}"
+              target="_blank" rel="noopener noreferrer" title="Watch on TikTok">${escapeHtml(recipe.name)}</a>`
+          : `<span class="meal-chip">${escapeHtml(recipe.name)}</span>`;
+        // "Made" is a quick per-slot toggle — ticking it just means this week's instance of
+        // the meal is done, not that the recipe itself changes, so it saves immediately.
+        // Hiding the checkboxes (mealMadeCheckboxesHidden) is purely cosmetic — the made
+        // state itself is untouched, just not shown or struck through while hidden.
+        if(mealMadeCheckboxesHidden) return chip;
+        return `<label class="meal-made-wrap ${entry.made ? 'made' : ''}" title="Mark as made this week">
+            <input type="checkbox" class="meal-made-check"
+                data-plan="${plan.id}" data-date="${date}" data-type="${type}" data-recipe="${entry.recipeId}"
+                ${entry.made ? 'checked' : ''}>
+            ${chip}
+          </label>`;
+      })
       .join('');
     const addBtn = isEditing
       ? `<button type="button" class="meal-add-btn" title="Add recipes"
           data-plan="${plan.id}" data-date="${date}" data-type="${type}">+</button>`
       : '';
     return `<div class="meal-cell">${chips}${addBtn}</div>`;
+  }
+
+  // Ticking "made" is a lightweight per-slot flag, not a recipe edit — update optimistically
+  // (instant re-render) and persist in the background, same pattern as the grocery list's
+  // checkboxes, rather than round-tripping through a full plan refetch.
+  function setMealMade(planId, date, type, recipeId, made){
+    const plan = plansCache.find(p => p.id === planId);
+    if(!plan) return;
+    const entries = ((plan.meals || {})[date] || {})[type] || [];
+    const entry = entries.find(e => e.recipeId === recipeId);
+    if(!entry) return;
+    entry.made = made;
+    renderPlanCards();
+    updateMealEntries(planId, date, type, entries);
+  }
+
+  // One-click removal of a single recipe from a meal slot — previously the only way to
+  // drop a recipe was through the "+" picker (uncheck it, then Next). Same optimistic
+  // update-then-persist pattern as setMealMade, no confirmation dialog since it's meant
+  // to be quick and the recipe can just be picked again if removed by mistake.
+  function removeMealEntry(planId, date, type, recipeId){
+    const plan = plansCache.find(p => p.id === planId);
+    if(!plan) return;
+    const entries = ((plan.meals || {})[date] || {})[type] || [];
+    const idx = entries.findIndex(e => e.recipeId === recipeId);
+    if(idx === -1) return;
+    entries.splice(idx, 1);
+    renderPlanCards();
+    updateMealEntries(planId, date, type, entries);
   }
 
   function mealTableHtml(plan, isEditing){
@@ -907,9 +1016,12 @@
       </tr>`).join('');
 
     return `
-      <div style="margin-bottom:10px;">
+      <div style="margin-bottom:10px; display:flex; gap:10px; flex-wrap:wrap;">
         <button type="button" class="btn-secondary breakfast-toggle-btn" style="padding:8px 16px; font-size:0.82rem;">
           ${breakfastCollapsed ? '▸ Show Breakfast' : '▾ Hide Breakfast'}
+        </button>
+        <button type="button" class="btn-secondary made-checkbox-toggle-btn" style="padding:8px 16px; font-size:0.82rem;">
+          ${mealMadeCheckboxesHidden ? '▸ Show checkboxes' : '▾ Hide checkboxes'}
         </button>
       </div>
       <div class="table-scroll">
@@ -1016,6 +1128,20 @@
       });
     });
 
+    list.querySelectorAll('.meal-chip-remove').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const recipe = recipesCache.find(r => r.id === btn.dataset.recipe);
+        if(!confirm(`Remove ${recipe ? recipe.name : 'this meal'} from ${btn.dataset.type} on ${formatDayHeader(btn.dataset.date)}?`)) return;
+        removeMealEntry(btn.dataset.plan, btn.dataset.date, btn.dataset.type, btn.dataset.recipe);
+      });
+    });
+
+    list.querySelectorAll('.meal-made-check').forEach(cb => {
+      cb.addEventListener('change', () => {
+        setMealMade(cb.dataset.plan, cb.dataset.date, cb.dataset.type, cb.dataset.recipe, cb.checked);
+      });
+    });
+
     list.querySelectorAll('.view-grocery-list-btn').forEach(btn => {
       btn.addEventListener('click', () => openGroceryListView(btn.dataset.plan));
     });
@@ -1032,6 +1158,13 @@
     list.querySelectorAll('.breakfast-toggle-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         breakfastCollapsed = !breakfastCollapsed;
+        renderPlanCards();
+      });
+    });
+
+    list.querySelectorAll('.made-checkbox-toggle-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        mealMadeCheckboxesHidden = !mealMadeCheckboxesHidden;
         renderPlanCards();
       });
     });
@@ -1295,10 +1428,11 @@
         const variants = groceriesCache.filter(g => normalizeItemKey(g.item) === itemKey);
         if(variants.length === 0) return '';
 
-        const prev = prevQuantities[itemKey]; // { itemId, quantity } | undefined
+        const prev = prevQuantities[itemKey]; // { itemId, quantity, doubleCheck } | undefined
         const selectedVariantId = (prev && variants.some(v => v.id === prev.itemId)) ? prev.itemId : variants[0].id;
         const selectedVariant = variants.find(v => v.id === selectedVariantId);
         const qty = prev ? prev.quantity : 1;
+        const doubleCheck = prev ? !!prev.doubleCheck : false;
 
         const options = variants.map(v =>
           `<option value="${v.id}" ${v.id === selectedVariantId ? 'selected' : ''}>${escapeHtml(displayName(v))}</option>`
@@ -1308,6 +1442,9 @@
           <div class="qty-item-name">${escapeHtml(displayItemKey(itemKey))}</div>
           <select class="qty-variant-select">${options}</select>
           <div class="qty-input-wrap">${buildQtyInputWrapHtml(selectedVariant, qty)}</div>
+          <label class="qty-doublecheck-label" title="Double check your pantry before buying this">
+            <input type="checkbox" class="qty-doublecheck" ${doubleCheck ? 'checked' : ''}> 🔍 Double check
+          </label>
         </div>`;
       }).join('') || `<div class="picker-sub">No purchasable items available for this recipe's ingredients.</div>`;
 
@@ -1355,7 +1492,8 @@
         const itemKey = row.dataset.itemKey;
         const itemId = row.querySelector('.qty-variant-select').value;
         const quantity = Math.max(0, Number(row.querySelector('.qty-input').value) || 0);
-        quantities[itemKey] = { itemId, quantity };
+        const doubleCheck = row.querySelector('.qty-doublecheck').checked;
+        quantities[itemKey] = { itemId, quantity, doubleCheck };
       });
       return { recipeId: rid, quantities };
     });
@@ -1454,6 +1592,9 @@
 
     container.innerHTML = `<div class="item-grid">${filtered.map(r => `
       <div class="item-card">
+        ${isSafeHttpUrl(r.tiktokUrl)
+          ? `<a class="item-card-link" href="${escapeHtml(r.tiktokUrl)}" target="_blank" rel="noopener noreferrer" aria-label="Watch ${escapeHtml(r.name)} on TikTok"></a>`
+          : ''}
         <div class="item-actions">
           <button class="item-edit" title="Edit recipe" data-id="${r.id}">✎</button>
           <button class="item-delete" title="Delete recipe" data-id="${r.id}">✕</button>
@@ -1581,6 +1722,7 @@
     recipeSubmitBtn.textContent = recipe ? 'Update recipe' : 'Save recipe';
     recipeForm.reset();
     document.getElementById('recipeName').value = recipe ? recipe.name : '';
+    document.getElementById('recipeTiktokUrl').value = recipe ? (recipe.tiktokUrl || '') : '';
     selectedIngredientItems = new Set(recipe ? recipe.ingredientItems : []);
     ingredientSearch.value = '';
     renderIngredientPickerList();
@@ -1601,6 +1743,7 @@
   recipeForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = document.getElementById('recipeName').value.trim();
+    const tiktokUrl = document.getElementById('recipeTiktokUrl').value.trim();
     const ingredientItems = Array.from(selectedIngredientItems);
 
     if(!name || ingredientItems.length === 0){
@@ -1615,6 +1758,7 @@
       name,
       ingredientItems,
       thumbnail: thumbnailDataUrl,
+      tiktokUrl: tiktokUrl || null,
       createdAt: Date.now()
     };
     await (editingRecipeId ? updateRecipe(payload) : createRecipe(payload));
@@ -1866,10 +2010,31 @@
     return zeroUsage;
   }
 
+  // Recipes whose assigned entry has "Double check" ticked for an item — i.e. "I might
+  // already have this in my pantry, check before buying" — tracked by itemId so the
+  // grocery-list row seeded from it can start flagged. itemId -> Set<recipeId>.
+  function computeDoubleCheckFlags(plan){
+    const flags = new Map();
+    Object.values(plan.meals || {}).forEach(mealsByType => {
+      Object.values(mealsByType).forEach(entries => {
+        (entries || []).forEach(entry => {
+          if(!recipesCache.some(r => r.id === entry.recipeId)) return;
+          Object.values(entry.quantities || {}).forEach(({ itemId, quantity, doubleCheck }) => {
+            if(!quantity || !doubleCheck) return;
+            if(!flags.has(itemId)) flags.set(itemId, new Set());
+            flags.get(itemId).add(entry.recipeId);
+          });
+        });
+      });
+    });
+    return flags;
+  }
+
   // Meat items are never combined — each recipe using one gets its own separate row
   // instead of being summed into a single line, unlike every other category.
   function computeInitialGroceryItems(plan){
     const usage = computeRequiredGroceryUsage(plan);
+    const doubleCheckFlags = computeDoubleCheckFlags(plan);
     const items = [];
     usage.forEach((perRecipe, itemId) => {
       const grocery = groceriesCache.find(g => g.id === itemId);
@@ -1877,6 +2042,7 @@
         perRecipe.forEach((qty, recipeId) => {
           items.push({
             id: crypto.randomUUID(), itemId, quantity: qty, checked: false,
+            doubleCheck: !!(doubleCheckFlags.get(itemId) && doubleCheckFlags.get(itemId).has(recipeId)),
             recipeIds: [recipeId], recipeContributions: { [recipeId]: qty },
           });
         });
@@ -1884,7 +2050,9 @@
         items.push({
           id: crypto.randomUUID(), itemId,
           quantity: Array.from(perRecipe.values()).reduce((a, b) => a + b, 0),
-          checked: false, recipeIds: Array.from(perRecipe.keys()),
+          checked: false,
+          doubleCheck: !!(doubleCheckFlags.get(itemId) && doubleCheckFlags.get(itemId).size > 0),
+          recipeIds: Array.from(perRecipe.keys()),
           recipeContributions: Object.fromEntries(perRecipe),
         });
       }
@@ -1905,7 +2073,7 @@
   // removed, or changed recipe usage is folded in — any manual top-up the user added on
   // top of the recipe-driven amount is preserved rather than overwritten.
   // Meat items are kept as one row per recipe rather than a single combined row.
-  function syncGroceryListWithPlan(items, usage, excludedKeys){
+  function syncGroceryListWithPlan(items, usage, excludedKeys, doubleCheckFlags){
     let changed = false;
 
     // Migration: give every row a stable id (older rows were keyed by itemId alone,
@@ -1925,7 +2093,8 @@
         Object.entries(contributions).forEach(([recipeId, qty]) => {
           items.push({
             id: crypto.randomUUID(), itemId: item.itemId, quantity: qty,
-            checked: item.checked, recipeIds: [recipeId], recipeContributions: { [recipeId]: qty },
+            checked: item.checked, doubleCheck: item.doubleCheck,
+            recipeIds: [recipeId], recipeContributions: { [recipeId]: qty },
           });
         });
         changed = true;
@@ -1942,6 +2111,7 @@
             if(excludedKeys && excludedKeys.has(glistRowKey({ itemId }, recipeId))) return;
             items.push({
               id: crypto.randomUUID(), itemId, quantity: qty, checked: false,
+              doubleCheck: !!(doubleCheckFlags && doubleCheckFlags.get(itemId) && doubleCheckFlags.get(itemId).has(recipeId)),
               recipeIds: [recipeId], recipeContributions: { [recipeId]: qty },
             });
             changed = true;
@@ -1962,7 +2132,9 @@
         items.push({
           id: crypto.randomUUID(), itemId,
           quantity: Array.from(perRecipe.values()).reduce((a, b) => a + b, 0),
-          checked: false, recipeIds: Array.from(perRecipe.keys()),
+          checked: false,
+          doubleCheck: !!(doubleCheckFlags && doubleCheckFlags.get(itemId) && doubleCheckFlags.get(itemId).size > 0),
+          recipeIds: Array.from(perRecipe.keys()),
           recipeContributions: Object.fromEntries(perRecipe),
         });
         changed = true;
@@ -2004,6 +2176,33 @@
         items.splice(i, 1);
         changed = true;
       }
+    }
+
+    // Reconcile regular (non-meat) rows whose item dropped out of `usage` entirely — e.g.
+    // the only recipe calling for it was removed from the plan. The usage.forEach above
+    // only ever visits itemIds still present in `usage`, so a row that vanished completely
+    // is never touched by it and would otherwise sit there forever at its old quantity.
+    for(let i = items.length - 1; i >= 0; i--){
+      const item = items[i];
+      if(usage.has(item.itemId)) continue; // still required — already handled above
+      const grocery = groceriesCache.find(g => g.id === item.itemId);
+      if(grocery && isMeatCategory(grocery)) continue; // handled by the cleanup pass above
+
+      const recipeIds = item.recipeIds || [];
+      const hasContributions = item.recipeContributions && Object.keys(item.recipeContributions).length > 0;
+      if(recipeIds.length === 0 && !hasContributions) continue; // purely manual row — never recipe-tied, leave it
+
+      const prevTotal = Object.values(item.recipeContributions || {}).reduce((a, b) => a + b, 0);
+      const manualExtra = item.quantity - prevTotal;
+
+      if(manualExtra <= 0){
+        items.splice(i, 1); // nothing left to justify this row now that the recipe is gone
+      }else{
+        item.quantity = manualExtra; // keep just the manually-added portion, as a manual row
+        item.recipeContributions = {};
+        item.recipeIds = [];
+      }
+      changed = true;
     }
 
     return changed;
@@ -2058,7 +2257,8 @@
     }else{
       const usage = computeRequiredGroceryUsage(plan);
       const excludedKeys = new Set(listDoc.excludedKeys || []);
-      if(syncGroceryListWithPlan(listDoc.items, usage, excludedKeys)){
+      const doubleCheckFlags = computeDoubleCheckFlags(plan);
+      if(syncGroceryListWithPlan(listDoc.items, usage, excludedKeys, doubleCheckFlags)){
         listDoc = await saveGroceryList(planId, listDoc.items, listDoc.excludedKeys || []);
       }
     }
@@ -2190,10 +2390,14 @@
       const usedCount = contributingNames.length + zeroNames.length;
 
       return `
-        <div class="glist-row ${entry.checked ? 'checked' : ''}" data-row="${entry.id}">
+        <div class="glist-row ${entry.checked ? 'checked' : ''} ${entry.doubleCheck ? 'doublecheck' : ''}" data-row="${entry.id}">
           <div class="glist-main">
             <span class="glist-drag-handle" draggable="true" title="Drag to reorder">☰</span>
             <input type="checkbox" class="glist-check" data-row="${entry.id}" ${entry.checked ? 'checked' : ''}>
+            <label class="glist-doublecheck-label" title="Double check your pantry before buying this">
+              <input type="checkbox" class="glist-doublecheck" data-row="${entry.id}" ${entry.doubleCheck ? 'checked' : ''}>
+              <span aria-hidden="true">🔍</span>
+            </label>
             <div class="glist-name">${escapeHtml(displayName(grocery))}${isKg ? ' <span class="picker-sub">(kg)</span>' : ''}</div>
             <input type="number" class="qty-input glist-qty" min="0" step="${isKg ? '0.1' : '1'}" value="${entry.quantity}" data-row="${entry.id}">
             <div class="glist-price">₱${lineTotal.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
@@ -2220,8 +2424,11 @@
       });
       if(bucket.length === 0) return '';
 
-      // Stable sort — unchecked items keep their stored order, checked ones move after them.
-      bucket.sort((a, b) => (a.entry.checked ? 1 : 0) - (b.entry.checked ? 1 : 0));
+      // Stable sort — double-check items float to the top (most actionable: go confirm
+      // whether it's already in the pantry), checked-off items sink to the bottom, and
+      // everything else keeps its stored order in between.
+      const sortPriority = (entry) => entry.checked ? 2 : (entry.doubleCheck ? 0 : 1);
+      bucket.sort((a, b) => sortPriority(a.entry) - sortPriority(b.entry));
 
       return `<div class="glist-section">
         <div class="glist-section-title">${label}</div>
@@ -2253,6 +2460,16 @@
         const entry = groceryListCache.items.find(i => i.id === cb.dataset.row);
         if(!entry) return;
         entry.checked = cb.checked;
+        renderGroceryListItems();
+        persistGroceryList();
+      });
+    });
+
+    container.querySelectorAll('.glist-doublecheck').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const entry = groceryListCache.items.find(i => i.id === cb.dataset.row);
+        if(!entry) return;
+        entry.doubleCheck = cb.checked;
         renderGroceryListItems();
         persistGroceryList();
       });
