@@ -155,7 +155,6 @@
   }
   .meal-input:focus{outline:none; background:var(--cream);}
   .meal-input::placeholder{color:#D8CFC4;}
-
   .empty-state{
     text-align:center; padding:70px 20px; color:var(--text-soft);
     background:var(--white); border-radius:var(--radius-md); box-shadow:var(--shadow);
@@ -374,10 +373,11 @@
   }
   .glist-qty{width:56px; flex-shrink:0; padding:6px 3px; font-size:0.82rem;}
   .glist-price{font-weight:700; color:var(--berry); font-family:'Quicksand'; min-width:70px; flex-shrink:0; text-align:right;}
-  .glist-remove{
+  .glist-edit, .glist-remove{
     background:none; border:none; color:var(--text-soft); cursor:pointer; font-size:1rem;
     padding:4px 6px; border-radius:8px; flex-shrink:0;
   }
+  .glist-edit:hover{color:var(--sage-dark);}
   .glist-remove:hover{color:var(--berry);}
   .glist-row.checked .glist-name{color:var(--text-soft); text-decoration:line-through;}
   .glist-row.checked{opacity:0.6;}
@@ -405,6 +405,32 @@
 
   footer{padding:40px 24px 30px; border-top:1px solid #F0E8DC; text-align:center;}
   footer p{color:var(--text-soft); font-size:0.85rem; margin:8px 0 0;}
+
+  /* On narrow screens the Day column shrinks to a fixed width and Lunch/Dinner split the
+     rest evenly, with chips wrapping instead of forcing the table wider than the screen —
+     so both meal columns stay visible side by side instead of needing a horizontal scroll.
+     Placed last so it wins the cascade over the unconditional rules above it. */
+  @media (max-width:600px){
+    main{padding:28px 14px 100px;}
+    /* Equal-split widths are spelled out per column count (2 = breakfast hidden, 3 = shown —
+       the only two possible cases) as plain percentages — a CSS custom property here hits a
+       Chromium quirk where var()-resolved widths are ignored. They're set on the tbody cells
+       (not just thead) because Chrome's table-layout:fixed sizes columns from the tbody's
+       first row, ignoring widths specified only on the header row. */
+    .meal-table{table-layout:fixed;}
+    .meal-table .day-col{width:46px;}
+    .meal-table tbody th{width:46px;}
+    .meal-table.cols-2 thead th:not(.day-col), .meal-table.cols-2 tbody td{width:50%;}
+    .meal-table.cols-3 thead th:not(.day-col), .meal-table.cols-3 tbody td{width:33.3334%;}
+    .meal-table thead th{min-width:0; font-size:0.64rem; padding:4px 2px; white-space:normal;}
+    .meal-table tbody th{font-size:0.72rem; padding-right:4px; white-space:normal;}
+    .meal-cell{min-width:0; gap:4px; padding:2px;}
+    .meal-chip{
+      font-size:0.68rem; padding:4px 7px; white-space:normal;
+      overflow-wrap:anywhere; word-break:break-word; min-width:0; max-width:100%;
+    }
+    .meal-add-btn{width:22px; height:22px; font-size:0.85rem;}
+  }
 </style>
 </head>
 <body>
@@ -576,7 +602,7 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="groceryModalOverlay">
+<div class="modal-overlay" id="groceryModalOverlay" style="z-index:110;">
   <div class="modal">
     <h2 id="groceryModalTitle">New grocery item</h2>
     <form id="groceryForm">
@@ -671,6 +697,7 @@
     <h2>Add items</h2>
     <input type="text" class="search-bar" id="addGlistSearch" placeholder="Search groceries…" style="margin-bottom:10px;">
     <div class="picker-list" id="addGlistPickerList"></div>
+    <button type="button" class="add-ingredient-btn" id="addNewGlistGroceryBtn">+ Add new grocery item</button>
     <div class="modal-actions">
       <button type="button" class="btn-secondary" id="cancelAddGlistBtn">Cancel</button>
       <button type="button" class="btn-primary" id="saveAddGlistBtn">Add</button>
@@ -760,14 +787,23 @@
     const data = await fetchJson(`${getGroceryListsUrl()}?planId=${encodeURIComponent(planId)}`);
     return (data && Array.isArray(data.items)) ? data : null;
   }
-  function saveGroceryList(planId, items){
-    return postJson(getGroceryListsUrl(), { action: 'save', planId, items });
+  function saveGroceryList(planId, items, excludedKeys){
+    return postJson(getGroceryListsUrl(), { action: 'save', planId, items, excludedKeys: excludedKeys || [] });
   }
 
   let recipesCache = [];
   let groceriesCache = [];
   let plansCache = [];
   let groceryListCache = null; // { planId, items: [{ itemId, quantity, checked, recipeIds }] }
+
+  // ---- Cross-device sync for the grocery list view ----
+  // No realtime backend (websockets/SSE) — instead, while the view is open, poll the
+  // server every few seconds and adopt whatever's there if it's newer than what we have.
+  let groceryListPollTimer = null;
+  let isSavingGroceryList = false;
+  let lastGroceryListSaveAt = 0;
+  const GROCERY_LIST_POLL_MS = 3000;
+  const GROCERY_LIST_SAVE_QUIET_MS = 1500; // skip polling right after our own save so we don't clobber it mid-flight
 
   // A grocery entry's name is Brand + Item + Notes (e.g. "Datu Puti Soy Sauce 1L") —
   // recipes reference only the generic Item part, so swapping a brand is just an edit.
@@ -877,8 +913,8 @@
         </button>
       </div>
       <div class="table-scroll">
-        <table class="meal-table">
-          <thead><tr><th></th>${visibleTypes.map(t => `<th>${t[0].toUpperCase()}${t.slice(1)}</th>`).join('')}</tr></thead>
+        <table class="meal-table cols-${visibleTypes.length}">
+          <thead><tr><th class="day-col"></th>${visibleTypes.map(t => `<th>${t[0].toUpperCase()}${t.slice(1)}</th>`).join('')}</tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>`;
@@ -1011,6 +1047,7 @@
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
       document.getElementById('view-' + link.dataset.view).classList.add('active');
       navLinks.classList.remove('open');
+      stopGroceryListPolling();
       if(link.dataset.view === 'recipes') renderRecipes();
       if(link.dataset.view === 'plans') renderPlans();
       if(link.dataset.view === 'groceries') renderGroceries();
@@ -1769,6 +1806,18 @@
       selectedIngredientItems.add(normalizeItemKey(itemName));
       renderIngredientPickerList(ingredientSearch.value);
     }
+
+    // Added from inside the "Add item" picker on the grocery list — refresh it and
+    // pre-check the new item so it's ready to add to the list.
+    if(addGlistOverlay.classList.contains('open')){
+      addGlistCheckedIds.add(payload.id);
+      renderAddGlistList(addGlistSearch.value);
+    }
+
+    // Edited directly from a row on the grocery list view — reflect the change there too.
+    if(document.getElementById('view-grocery-list').classList.contains('active') && groceryListCache){
+      renderGroceryListItems();
+    }
   });
 
   // ---- Grocery list (per meal plan) ----
@@ -1843,12 +1892,20 @@
     return items;
   }
 
+  // Identifies a grocery-list row for exclusion tracking: one key per recipe for Meat
+  // (each recipe gets its own row there), one key per item everywhere else.
+  function glistRowKey(item, recipeId){
+    return recipeId ? `${item.itemId}::${recipeId}` : item.itemId;
+  }
+
   // Reconciles a persisted grocery list against what the plan's recipes currently require.
-  // New items are added outright. For items already on the list, only the *delta* from
-  // newly-added, removed, or changed recipe usage is folded in — any manual top-up the
-  // user added on top of the recipe-driven amount is preserved rather than overwritten.
+  // New items are added outright — unless the user explicitly removed that row before,
+  // tracked in `excludedKeys`, in which case it stays removed even though the recipe
+  // still calls for it. For items already on the list, only the *delta* from newly-added,
+  // removed, or changed recipe usage is folded in — any manual top-up the user added on
+  // top of the recipe-driven amount is preserved rather than overwritten.
   // Meat items are kept as one row per recipe rather than a single combined row.
-  function syncGroceryListWithPlan(items, usage){
+  function syncGroceryListWithPlan(items, usage, excludedKeys){
     let changed = false;
 
     // Migration: give every row a stable id (older rows were keyed by itemId alone,
@@ -1882,6 +1939,7 @@
         perRecipe.forEach((qty, recipeId) => {
           const row = items.find(i => i.itemId === itemId && (i.recipeIds || []).length === 1 && i.recipeIds[0] === recipeId);
           if(!row){
+            if(excludedKeys && excludedKeys.has(glistRowKey({ itemId }, recipeId))) return;
             items.push({
               id: crypto.randomUUID(), itemId, quantity: qty, checked: false,
               recipeIds: [recipeId], recipeContributions: { [recipeId]: qty },
@@ -1900,6 +1958,7 @@
 
       let row = items.find(i => i.itemId === itemId);
       if(!row){
+        if(excludedKeys && excludedKeys.has(glistRowKey({ itemId }))) return;
         items.push({
           id: crypto.randomUUID(), itemId,
           quantity: Array.from(perRecipe.values()).reduce((a, b) => a + b, 0),
@@ -1958,6 +2017,7 @@
   }
 
   async function loadGroceryListView(planId){
+    stopGroceryListPolling(); // stop polling the previous list, if any, while this one loads
     const container = document.getElementById('groceryListContainer');
     container.innerHTML = 'Loading…';
     document.getElementById('groceryListSubtitle').textContent = '';
@@ -1994,23 +2054,84 @@
     let listDoc = await fetchGroceryList(planId);
 
     if(!listDoc){
-      listDoc = await saveGroceryList(planId, computeInitialGroceryItems(plan));
+      listDoc = await saveGroceryList(planId, computeInitialGroceryItems(plan), []);
     }else{
       const usage = computeRequiredGroceryUsage(plan);
-      if(syncGroceryListWithPlan(listDoc.items, usage)){
-        listDoc = await saveGroceryList(planId, listDoc.items);
+      const excludedKeys = new Set(listDoc.excludedKeys || []);
+      if(syncGroceryListWithPlan(listDoc.items, usage, excludedKeys)){
+        listDoc = await saveGroceryList(planId, listDoc.items, listDoc.excludedKeys || []);
       }
     }
 
     groceryListCache = listDoc;
     renderGroceryListItems();
+    startGroceryListPolling();
   }
 
   // Fire-and-forget: the UI already reflects the change (optimistic update), this just
-  // syncs it to the backend in the background so interactions feel instant.
-  function persistGroceryList(){
-    saveGroceryList(groceryListCache.planId, groceryListCache.items);
+  // syncs it to the backend in the background so interactions feel instant. Tracked with
+  // isSavingGroceryList/lastGroceryListSaveAt so the poller below doesn't race it.
+  async function persistGroceryList(){
+    if(!groceryListCache) return;
+    const planId = groceryListCache.planId;
+    const items = groceryListCache.items;
+    const excludedKeys = groceryListCache.excludedKeys || [];
+    isSavingGroceryList = true;
+    try {
+      const saved = await saveGroceryList(planId, items, excludedKeys);
+      if(saved && groceryListCache && groceryListCache.planId === planId){
+        groceryListCache.updatedAt = saved.updatedAt;
+      }
+    } finally {
+      isSavingGroceryList = false;
+      lastGroceryListSaveAt = Date.now();
+    }
   }
+
+  // Pulls the latest grocery-list doc (and the shared groceries catalog, since editing an
+  // item's price/name from another device should show up here too) and adopts them if
+  // they've changed — this is what makes two devices looking at the same list stay in sync.
+  async function pollGroceryListUpdates(){
+    if(document.hidden) return;
+    if(!groceryListCache) return;
+    if(!document.getElementById('view-grocery-list').classList.contains('active')) return;
+    if(isSavingGroceryList) return;
+    if(Date.now() - lastGroceryListSaveAt < GROCERY_LIST_SAVE_QUIET_MS) return;
+
+    try {
+      const planId = groceryListCache.planId;
+      const [latestList, latestGroceries] = await Promise.all([
+        fetchGroceryList(planId),
+        fetchGroceries(),
+      ]);
+      if(!groceryListCache || groceryListCache.planId !== planId) return; // navigated away mid-request
+
+      let shouldRender = false;
+      if(latestList && latestList.updatedAt !== groceryListCache.updatedAt){
+        groceryListCache = latestList;
+        shouldRender = true;
+      }
+      if(JSON.stringify(latestGroceries) !== JSON.stringify(groceriesCache)){
+        groceriesCache = latestGroceries;
+        shouldRender = true;
+      }
+      if(shouldRender) renderGroceryListItems();
+    } catch(err){
+      // Network hiccup — just try again on the next tick.
+    }
+  }
+
+  function startGroceryListPolling(){
+    stopGroceryListPolling();
+    groceryListPollTimer = setInterval(pollGroceryListUpdates, GROCERY_LIST_POLL_MS);
+  }
+  function stopGroceryListPolling(){
+    if(groceryListPollTimer){ clearInterval(groceryListPollTimer); groceryListPollTimer = null; }
+  }
+  // Catch up immediately when the tab/app regains focus instead of waiting for the next tick.
+  document.addEventListener('visibilitychange', () => {
+    if(!document.hidden) pollGroceryListUpdates();
+  });
 
   const GLIST_CATEGORY_GROUPS = [
     { key: 'market', label: 'Market' },
@@ -2076,6 +2197,7 @@
             <div class="glist-name">${escapeHtml(displayName(grocery))}${isKg ? ' <span class="picker-sub">(kg)</span>' : ''}</div>
             <input type="number" class="qty-input glist-qty" min="0" step="${isKg ? '0.1' : '1'}" value="${entry.quantity}" data-row="${entry.id}">
             <div class="glist-price">₱${lineTotal.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+            <button type="button" class="glist-edit" title="Edit item" data-row="${entry.id}">✎</button>
             <button type="button" class="glist-remove" title="Remove item" data-row="${entry.id}">✕</button>
           </div>
           <button type="button" class="glist-used-toggle" data-row="${entry.id}">Used in ${usedCount} recipe${usedCount === 1 ? '' : 's'} ▾</button>
@@ -2146,8 +2268,26 @@
       });
     });
 
+    container.querySelectorAll('.glist-edit').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const entry = groceryListCache.items.find(i => i.id === btn.dataset.row);
+        const grocery = entry && groceriesCache.find(g => g.id === entry.itemId);
+        if(grocery) openGroceryModal(grocery);
+      });
+    });
+
     container.querySelectorAll('.glist-remove').forEach(btn => {
       btn.addEventListener('click', () => {
+        const entry = groceryListCache.items.find(i => i.id === btn.dataset.row);
+        if(entry){
+          // Remember this was deliberately removed so re-syncing with the plan's
+          // recipes (on next load) doesn't silently add it back.
+          const grocery = groceriesCache.find(g => g.id === entry.itemId);
+          const isMeatRow = grocery && isMeatCategory(grocery) && (entry.recipeIds || []).length === 1;
+          const key = glistRowKey(entry, isMeatRow ? entry.recipeIds[0] : null);
+          if(!groceryListCache.excludedKeys) groceryListCache.excludedKeys = [];
+          if(!groceryListCache.excludedKeys.includes(key)) groceryListCache.excludedKeys.push(key);
+        }
         groceryListCache.items = groceryListCache.items.filter(i => i.id !== btn.dataset.row);
         renderGroceryListItems();
         persistGroceryList();
@@ -2224,6 +2364,7 @@
     document.querySelector('.nav-links a[data-view="plans"]').classList.add('active');
     showView('plans');
     renderPlans();
+    stopGroceryListPolling();
   });
 
   document.getElementById('glistSearch').addEventListener('input', renderGroceryListItems);
@@ -2277,6 +2418,7 @@
   addGlistSearch.addEventListener('input', () => renderAddGlistList(addGlistSearch.value));
   document.getElementById('openAddGlistItemBtn').addEventListener('click', openAddGlistModal);
   document.getElementById('cancelAddGlistBtn').addEventListener('click', closeAddGlistModal);
+  document.getElementById('addNewGlistGroceryBtn').addEventListener('click', () => openGroceryModal());
   addGlistOverlay.addEventListener('click', (e) => { if(e.target === addGlistOverlay) closeAddGlistModal(); });
 
   document.getElementById('saveAddGlistBtn').addEventListener('click', () => {
@@ -2284,6 +2426,10 @@
     if(ids.length > 0){
       ids.forEach(id => {
         groceryListCache.items.push({ id: crypto.randomUUID(), itemId: id, quantity: 1, checked: false, recipeIds: [], recipeContributions: {} });
+        // Re-adding it deliberately overrides any earlier removal of this item.
+        if(groceryListCache.excludedKeys){
+          groceryListCache.excludedKeys = groceryListCache.excludedKeys.filter(k => k !== id && !k.startsWith(id + '::'));
+        }
       });
       renderGroceryListItems();
       persistGroceryList();

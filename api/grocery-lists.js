@@ -23,6 +23,7 @@ function docToList(doc) {
   return {
     planId: doc._id,
     items: doc.items || [],
+    excludedKeys: doc.excludedKeys || [],
     updatedAt: doc.updatedAt,
   };
 }
@@ -62,7 +63,7 @@ module.exports = async function handler(req, res) {
         await collection.updateOne(
           { _id: body.planId },
           {
-            $set: { items: body.items || [], updatedAt: Date.now() },
+            $set: { items: body.items || [], excludedKeys: body.excludedKeys || [], updatedAt: Date.now() },
             $setOnInsert: { createdAt: Date.now() },
           },
           { upsert: true }
