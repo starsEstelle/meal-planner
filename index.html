@@ -35,6 +35,9 @@
   }
 
   *{box-sizing:border-box;}
+  /* Disables the double-tap-to-zoom gesture on touch screens (pinch-zoom still works,
+     this only removes the "double tap" ambiguity/delay and the zoom it triggers). */
+  html{touch-action:manipulation;}
   html, body{height:100%;}
   body{
     margin:0;
@@ -414,6 +417,7 @@
   }
   .glist-row.drag-over{background:var(--cream); box-shadow:inset 0 2px 0 var(--sage);}
   .glist-row.doublecheck{box-shadow:inset 3px 0 0 var(--peach-dark);}
+  .glist-toolbar{display:flex; align-items:center; justify-content:flex-end; gap:8px; margin-bottom:8px;}
   .glist-main{display:flex; align-items:center; gap:10px;}
   .glist-drag-handle{
     cursor:grab; color:var(--text-soft); font-size:0.9rem; line-height:1; flex-shrink:0;
@@ -474,6 +478,10 @@
      so both meal columns stay visible side by side instead of needing a horizontal scroll.
      Placed last so it wins the cascade over the unconditional rules above it. */
   @media (max-width:600px){
+    /* iOS Safari auto-zooms the page when focusing a text field smaller than 16px — the
+       !important is needed since it has to beat several more-specific input rules above
+       (e.g. ".field input[type=number]") that set a smaller font-size for desktop. */
+    input, select, textarea{font-size:16px !important;}
     main{padding:28px 14px 100px;}
     /* Equal-split widths are spelled out per column count (2 = breakfast hidden, 3 = shown —
        the only two possible cases) as plain percentages — a CSS custom property here hits a
@@ -2493,18 +2501,20 @@
 
       return `
         <div class="glist-row ${entry.checked ? 'checked' : ''} ${entry.doubleCheck ? 'doublecheck' : ''}" data-row="${entry.id}">
-          <div class="glist-main">
-            <span class="glist-drag-handle" draggable="true" title="Drag to reorder">☰</span>
-            <input type="checkbox" class="glist-check" data-row="${entry.id}" ${entry.checked ? 'checked' : ''}>
+          <div class="glist-toolbar">
             <label class="glist-doublecheck-label" title="Double check your pantry before buying this">
               <input type="checkbox" class="glist-doublecheck" data-row="${entry.id}" ${entry.doubleCheck ? 'checked' : ''}>
               <span aria-hidden="true">🔍</span>
             </label>
+            <button type="button" class="glist-edit" title="Edit item" data-row="${entry.id}">✎</button>
+            <button type="button" class="glist-remove" title="Remove item" data-row="${entry.id}">✕</button>
+          </div>
+          <div class="glist-main">
+            <span class="glist-drag-handle" draggable="true" title="Drag to reorder">☰</span>
+            <input type="checkbox" class="glist-check" data-row="${entry.id}" ${entry.checked ? 'checked' : ''}>
             <div class="glist-name">${escapeHtml(displayName(grocery))}${isKg ? ' <span class="picker-sub">(kg)</span>' : ''}</div>
             <input type="number" class="qty-input glist-qty" min="0" step="${isKg ? '0.1' : '1'}" value="${entry.quantity}" data-row="${entry.id}">
             <div class="glist-price">₱${lineTotal.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
-            <button type="button" class="glist-edit" title="Edit item" data-row="${entry.id}">✎</button>
-            <button type="button" class="glist-remove" title="Remove item" data-row="${entry.id}">✕</button>
           </div>
           <button type="button" class="glist-used-toggle" data-row="${entry.id}">Used in ${usedCount} recipe${usedCount === 1 ? '' : 's'} ▾</button>
           <div class="glist-used-list" id="glist-used-${entry.id}" hidden>
