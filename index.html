@@ -400,12 +400,18 @@
   /* ---------- GROCERY LIST (per meal plan) ---------- */
   .glist-section{margin-bottom:22px;}
   .glist-section-title{
+    display:flex; align-items:center; gap:6px; width:100%;
+    background:none; border:none; font-family:inherit; cursor:pointer;
     font-size:0.78rem; font-weight:800; color:var(--text-soft); text-transform:uppercase;
-    letter-spacing:0.4px; margin-bottom:10px; padding-left:4px;
+    letter-spacing:0.4px; margin-bottom:10px; padding:4px;
   }
+  .glist-section-title:hover{color:var(--text);}
+  .glist-section-arrow{font-size:0.65rem; flex-shrink:0; width:10px;}
+  .glist-section-count{margin-left:auto; font-weight:700; opacity:0.75;}
   .glist-container{
     background:var(--white); border-radius:var(--radius-md); padding:6px 22px; box-shadow:var(--shadow);
   }
+  .glist-container[hidden]{display:none;}
   .glist-row{
     padding:14px 0; border-bottom:1px solid #F2ECE4; border-radius:10px;
     transition:opacity 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease, background 0.15s ease;
@@ -440,14 +446,26 @@
   }
   .glist-qty{width:56px; flex-shrink:0; padding:6px 3px; font-size:0.82rem;}
   .glist-price{font-weight:700; color:var(--berry); font-family:'Quicksand'; min-width:70px; flex-shrink:0; text-align:right;}
-  .glist-edit, .glist-remove{
+  .glist-edit, .glist-remove, .glist-swap-brand-btn{
     background:none; border:none; color:var(--text-soft); cursor:pointer; font-size:1rem;
     padding:4px 6px; border-radius:8px; flex-shrink:0;
   }
   .glist-edit:hover{color:var(--sage-dark);}
   .glist-remove:hover{color:var(--berry);}
+  .glist-swap-brand-btn:hover{color:var(--peach-dark);}
   .glist-row.checked .glist-name{color:var(--text-soft); text-decoration:line-through;}
   .glist-row.checked{opacity:0.6;}
+  .glist-brand-menu{
+    display:flex; flex-direction:column; gap:2px;
+    background:var(--cream); border-radius:12px; padding:6px; margin-bottom:8px;
+  }
+  .glist-brand-menu[hidden]{display:none;}
+  .glist-brand-option{
+    background:none; border:none; text-align:left; padding:8px 10px; border-radius:8px;
+    font-size:0.85rem; font-family:inherit; color:var(--text); cursor:pointer;
+  }
+  .glist-brand-option:hover{background:var(--white);}
+  .glist-brand-option.current{font-weight:800; color:var(--sage-dark);}
   .glist-used-toggle{
     background:none; border:none; color:var(--text-soft); font-size:0.78rem; font-weight:700;
     cursor:pointer; padding:6px 0 0 32px;
@@ -472,6 +490,17 @@
 
   footer{padding:40px 24px 30px; border-top:1px solid #F0E8DC; text-align:center;}
   footer p{color:var(--text-soft); font-size:0.85rem; margin:8px 0 0;}
+
+  .back-to-top{
+    display:none; align-items:center; justify-content:center;
+    position:fixed; bottom:24px; right:24px; z-index:60;
+    width:48px; height:48px; border-radius:50%; border:none;
+    background:var(--berry); color:white; font-size:1.3rem; line-height:1; cursor:pointer;
+    box-shadow:0 8px 22px rgba(242,140,130,0.4);
+    transition:transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .back-to-top.show{display:flex;}
+  .back-to-top:hover{transform:translateY(-3px); box-shadow:0 12px 28px rgba(242,140,130,0.5);}
 
   /* On narrow screens the Day column shrinks to a fixed width and Lunch/Dinner split the
      rest evenly, with chips wrapping instead of forcing the table wider than the screen —
@@ -506,6 +535,18 @@
     .meal-add-btn{width:22px; height:22px; font-size:0.85rem;}
     /* Scale down rather than wrap — the two toggle buttons stay side by side at any width. */
     .meal-toggle-btn{padding:7px 8px; font-size:0.68rem;}
+
+    /* Recipes grid: 3 compact cards per row instead of the 1-per-row the 200px auto-fill
+       minimum forces at this width. Scoped to the recipes view only — the groceries grid
+       shares .item-grid/.item-card but isn't part of this request, so it keeps its
+       current (larger, single-column-on-mobile) card size. */
+    #recipeContainer .item-grid{grid-template-columns:repeat(3, 1fr); gap:10px;}
+    #recipeContainer .item-body{padding:8px 8px 10px;}
+    #recipeContainer .item-name{font-size:0.78rem; line-height:1.25; margin:0 0 4px;}
+    #recipeContainer .recipe-ingredients{gap:3px;}
+    #recipeContainer .recipe-ingredients li{font-size:0.62rem; padding:2px 6px;}
+    #recipeContainer .item-actions{top:6px; right:6px; gap:4px;}
+    #recipeContainer .item-edit, #recipeContainer .item-delete{width:22px; height:22px; font-size:0.72rem;}
   }
 </style>
 </head>
@@ -599,6 +640,8 @@
 <footer>
   <a href="#" class="logo">🍽️ Meal Planner</a>
 </footer>
+
+<button type="button" id="backToTopBtn" class="back-to-top" title="Back to top">↑</button>
 
 <div class="modal-overlay" id="modalOverlay">
   <div class="modal">
@@ -824,7 +867,12 @@
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
+        // Many saves (grocery list toggles, meal edits, etc.) fire-and-forget right before
+        // the user backgrounds the tab/app — without this, mobile browsers can abort the
+        // in-flight request outright, silently losing the change. keepalive tells the
+        // browser to let it finish anyway.
+        keepalive: true
       });
       if(res.status === 401){ showLoginGate(); return null; }
       if(!res.ok) throw new Error('Bad response: ' + res.status);
@@ -1271,6 +1319,7 @@
       document.getElementById('view-' + link.dataset.view).classList.add('active');
       navLinks.classList.remove('open');
       stopGroceryListPolling();
+      forgetGroceryListView(); // deliberate exit — don't resume back into this on next launch
       if(link.dataset.view === 'recipes') renderRecipes();
       if(link.dataset.view === 'plans') renderPlans();
       if(link.dataset.view === 'groceries') renderGroceries();
@@ -1278,6 +1327,15 @@
   });
 
   document.getElementById('menuBtn').addEventListener('click', () => navLinks.classList.toggle('open'));
+
+  // ---- Back to top ----
+  const backToTopBtn = document.getElementById('backToTopBtn');
+  function updateBackToTopVisibility(){
+    backToTopBtn.classList.toggle('show', window.scrollY > window.innerHeight);
+  }
+  window.addEventListener('scroll', updateBackToTopVisibility, { passive: true });
+  updateBackToTopVisibility();
+  backToTopBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 
   // ---- Modal ----
   const overlay = document.getElementById('modalOverlay');
@@ -2359,6 +2417,7 @@
 
     document.getElementById('groceryListSubtitle').textContent =
       `${formatDate(plan.fromDate)} – ${formatDate(plan.toDate)}`;
+    rememberGroceryListView(planId);
 
     let listDoc = await fetchGroceryList(planId);
 
@@ -2457,6 +2516,47 @@
   }
 
   let glistDragRowId = null;
+  // Which category sections are collapsed — purely a display preference, not persisted.
+  let glistCollapsedSections = new Set();
+
+  // Swaps which brand/variant a grocery-list row points to (e.g. Datu Puti -> Silver Swan
+  // Soy Sauce). For a recipe-driven row this also updates every contributing meal slot's
+  // own saved quantities to the new variant — otherwise the next plan/grocery-list sync
+  // would see the old variant still required, recreate it, and leave this swap orphaned.
+  function swapGlistRowVariant(rowId, newItemId){
+    const entry = groceryListCache.items.find(i => i.id === rowId);
+    if(!entry) return;
+    const oldGrocery = groceriesCache.find(g => g.id === entry.itemId);
+    const newGrocery = groceriesCache.find(g => g.id === newItemId);
+    if(!oldGrocery || !newGrocery) return;
+    const itemKey = normalizeItemKey(oldGrocery.item);
+
+    entry.itemId = newItemId;
+
+    const plan = plansCache.find(p => p.id === groceryListCache.planId);
+    if(plan && (entry.recipeIds || []).length > 0){
+      const recipeIdSet = new Set(entry.recipeIds);
+      const touchedSlots = new Set(); // `${date}|${type}`, so each slot persists once
+      Object.entries(plan.meals || {}).forEach(([date, mealsByType]) => {
+        Object.entries(mealsByType || {}).forEach(([type, slotEntries]) => {
+          (slotEntries || []).forEach(mealEntry => {
+            if(!recipeIdSet.has(mealEntry.recipeId)) return;
+            const q = mealEntry.quantities && mealEntry.quantities[itemKey];
+            if(!q) return;
+            q.itemId = newItemId;
+            touchedSlots.add(date + '|' + type);
+          });
+        });
+      });
+      touchedSlots.forEach(slotKey => {
+        const [date, type] = slotKey.split('|');
+        updateMealEntries(plan.id, date, type, ((plan.meals || {})[date] || {})[type] || []);
+      });
+    }
+
+    renderGroceryListItems();
+    persistGroceryList();
+  }
 
   function renderGroceryListItems(){
     const container = document.getElementById('groceryListContainer');
@@ -2499,6 +2599,19 @@
         .map(recipeName).filter(Boolean);
       const usedCount = contributingNames.length + zeroNames.length;
 
+      // Other brands of the same generic item (e.g. other Soy Sauce variants) — lets the
+      // user swap which one this row buys without touching the shared catalog entry.
+      const variants = groceriesCache.filter(g => normalizeItemKey(g.item) === normalizeItemKey(grocery.item));
+      const swapBrandBtn = variants.length > 1
+        ? `<button type="button" class="glist-swap-brand-btn" title="Change brand" data-row="${entry.id}">🔄</button>`
+        : '';
+      const brandMenu = variants.length > 1
+        ? `<div class="glist-brand-menu" id="glist-brand-${entry.id}" hidden>
+            ${variants.map(v => `<button type="button" class="glist-brand-option ${v.id === grocery.id ? 'current' : ''}"
+                data-row="${entry.id}" data-item-id="${v.id}">${escapeHtml(displayName(v))}</button>`).join('')}
+          </div>`
+        : '';
+
       return `
         <div class="glist-row ${entry.checked ? 'checked' : ''} ${entry.doubleCheck ? 'doublecheck' : ''}" data-row="${entry.id}">
           <div class="glist-toolbar">
@@ -2506,9 +2619,11 @@
               <input type="checkbox" class="glist-doublecheck" data-row="${entry.id}" ${entry.doubleCheck ? 'checked' : ''}>
               <span aria-hidden="true">🔍</span>
             </label>
+            ${swapBrandBtn}
             <button type="button" class="glist-edit" title="Edit item" data-row="${entry.id}">✎</button>
             <button type="button" class="glist-remove" title="Remove item" data-row="${entry.id}">✕</button>
           </div>
+          ${brandMenu}
           <div class="glist-main">
             <span class="glist-drag-handle" draggable="true" title="Drag to reorder">☰</span>
             <input type="checkbox" class="glist-check" data-row="${entry.id}" ${entry.checked ? 'checked' : ''}>
@@ -2542,9 +2657,14 @@
       const sortPriority = (entry) => entry.checked ? 2 : (entry.doubleCheck ? 0 : 1);
       bucket.sort((a, b) => sortPriority(a.entry) - sortPriority(b.entry));
 
+      const isCollapsed = glistCollapsedSections.has(key);
       return `<div class="glist-section">
-        <div class="glist-section-title">${label}</div>
-        <div class="glist-container">${bucket.map(({ entry, grocery }) => rowHtml(entry, grocery, key)).join('')}</div>
+        <button type="button" class="glist-section-title glist-section-toggle" data-section="${key}">
+          <span class="glist-section-arrow">${isCollapsed ? '▸' : '▾'}</span>
+          ${label}
+          <span class="glist-section-count">${bucket.length}</span>
+        </button>
+        <div class="glist-container" ${isCollapsed ? 'hidden' : ''}>${bucket.map(({ entry, grocery }) => rowHtml(entry, grocery, key)).join('')}</div>
       </div>`;
     }).join('');
 
@@ -2566,6 +2686,32 @@
         <span>Market <strong>${peso(categoryTotals.market)}</strong></span>
         <span>Grocery Store <strong>${peso(groceryStoreTotal)}</strong></span>
       </div>`;
+
+    container.querySelectorAll('.glist-section-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.section;
+        if(glistCollapsedSections.has(key)) glistCollapsedSections.delete(key);
+        else glistCollapsedSections.add(key);
+        renderGroceryListItems();
+      });
+    });
+
+    container.querySelectorAll('.glist-swap-brand-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const menu = document.getElementById('glist-brand-' + btn.dataset.row);
+        if(!menu) return;
+        const willOpen = menu.hidden;
+        // Only one brand menu open at a time.
+        container.querySelectorAll('.glist-brand-menu').forEach(m => { m.hidden = true; });
+        menu.hidden = !willOpen;
+      });
+    });
+
+    container.querySelectorAll('.glist-brand-option').forEach(btn => {
+      btn.addEventListener('click', () => {
+        swapGlistRowVariant(btn.dataset.row, btn.dataset.itemId);
+      });
+    });
 
     container.querySelectorAll('.glist-check').forEach(cb => {
       cb.addEventListener('change', () => {
@@ -2694,6 +2840,7 @@
     showView('plans');
     renderPlans();
     stopGroceryListPolling();
+    forgetGroceryListView(); // deliberate exit — don't resume back into this on next launch
   });
 
   document.getElementById('glistSearch').addEventListener('input', renderGroceryListItems);
@@ -2773,13 +2920,46 @@
     }
   }
 
+  // iOS home-screen web apps always relaunch at the originally-bookmarked URL (no hash),
+  // not wherever you last left off — there's no OS-level "resume state" for these like a
+  // native app gets. This is our own stand-in: remember the last grocery list you viewed,
+  // and jump straight back to it on a fresh launch, but only if it was recent — otherwise
+  // a weeks-old relaunch would keep dropping you into a stale list instead of the plans
+  // screen, which is just as surprising in the other direction.
+  const LAST_GLIST_KEY = 'mealPlanner:lastGroceryListView';
+  const GLIST_RESUME_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+
+  function rememberGroceryListView(planId){
+    try{ localStorage.setItem(LAST_GLIST_KEY, JSON.stringify({ planId, ts: Date.now() })); }
+    catch(err){ /* localStorage unavailable (private mode, etc.) — resume just won't work */ }
+  }
+  function forgetGroceryListView(){
+    try{ localStorage.removeItem(LAST_GLIST_KEY); }
+    catch(err){}
+  }
+  function getResumableGroceryListPlanId(){
+    try{
+      const raw = localStorage.getItem(LAST_GLIST_KEY);
+      if(!raw) return null;
+      const { planId, ts } = JSON.parse(raw);
+      if(!planId || typeof ts !== 'number') return null;
+      if(Date.now() - ts > GLIST_RESUME_WINDOW_MS) return null;
+      return planId;
+    }catch(err){ return null; }
+  }
+
   function initRoute(){
     const match = location.hash.match(/^#\/grocery-list\/(.+)$/);
     if(match){
       openGroceryListView(decodeURIComponent(match[1]));
-    }else{
-      renderPlans();
+      return;
     }
+    const resumeId = getResumableGroceryListPlanId();
+    if(resumeId){
+      openGroceryListView(resumeId);
+      return;
+    }
+    renderPlans();
   }
 
   window.addEventListener('hashchange', () => {
