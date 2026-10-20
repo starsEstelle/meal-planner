@@ -502,6 +502,17 @@
   .back-to-top.show{display:flex;}
   .back-to-top:hover{transform:translateY(-3px); box-shadow:0 12px 28px rgba(242,140,130,0.5);}
 
+  .quick-add-glist{
+    display:none; align-items:center; justify-content:center;
+    position:fixed; bottom:24px; right:84px; z-index:60;
+    width:48px; height:48px; border-radius:50%; border:none;
+    background:var(--sage-dark); color:white; font-size:1.5rem; line-height:1; cursor:pointer;
+    box-shadow:0 8px 22px rgba(0,0,0,0.25);
+    transition:transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .quick-add-glist.show{display:flex;}
+  .quick-add-glist:hover{transform:translateY(-3px); box-shadow:0 12px 28px rgba(0,0,0,0.3);}
+
   /* On narrow screens the Day column shrinks to a fixed width and Lunch/Dinner split the
      rest evenly, with chips wrapping instead of forcing the table wider than the screen —
      so both meal columns stay visible side by side instead of needing a horizontal scroll.
@@ -642,6 +653,7 @@
 </footer>
 
 <button type="button" id="backToTopBtn" class="back-to-top" title="Back to top">↑</button>
+<button type="button" id="quickAddGlistBtn" class="quick-add-glist" title="Quick add item">+</button>
 
 <div class="modal-overlay" id="modalOverlay">
   <div class="modal">
@@ -1336,6 +1348,9 @@
   window.addEventListener('scroll', updateBackToTopVisibility, { passive: true });
   updateBackToTopVisibility();
   backToTopBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+  const quickAddGlistBtn = document.getElementById('quickAddGlistBtn');
+  quickAddGlistBtn.addEventListener('click', () => openAddGlistModal());
 
   // ---- Modal ----
   const overlay = document.getElementById('modalOverlay');
@@ -2135,6 +2150,7 @@
   function showView(viewName){
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.getElementById('view-' + viewName).classList.add('active');
+    quickAddGlistBtn.classList.toggle('show', viewName === 'grocery-list');
   }
 
   // itemId (specific grocery variant) -> Map(recipeId -> quantity that recipe currently
