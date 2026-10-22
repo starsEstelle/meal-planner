@@ -2670,11 +2670,19 @@
       });
       if(bucket.length === 0) return '';
 
-      // Stable sort — double-check items float to the top (most actionable: go confirm
-      // whether it's already in the pantry), checked-off items sink to the bottom, and
-      // everything else keeps its stored order in between.
-      const sortPriority = (entry) => entry.checked ? 2 : (entry.doubleCheck ? 0 : 1);
-      bucket.sort((a, b) => sortPriority(a.entry) - sortPriority(b.entry));
+      // Stable sort — double-check items float to the very top (most actionable: go confirm
+      // whether it's already in the pantry), with zero-price ones first among those (still
+      // needs a price filled in too); zero-price items that aren't double-check float up
+      // right under the double-checks; checked-off items sink to the bottom; everything else
+      // keeps its stored order in between.
+      const sortPriority = ({ entry, grocery }) => {
+        const zeroPrice = !Number(grocery.price);
+        if(entry.checked) return 4;
+        if(entry.doubleCheck) return zeroPrice ? 0 : 1;
+        if(zeroPrice) return 2;
+        return 3;
+      };
+      bucket.sort((a, b) => sortPriority(a) - sortPriority(b));
 
       const isCollapsed = glistCollapsedSections.has(key);
       return `<div class="glist-section">
