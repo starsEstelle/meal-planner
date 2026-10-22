@@ -876,15 +876,18 @@
 
   async function postJson(url, body){
     try{
+      const payload = JSON.stringify(body);
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: payload,
         // Many saves (grocery list toggles, meal edits, etc.) fire-and-forget right before
         // the user backgrounds the tab/app — without this, mobile browsers can abort the
         // in-flight request outright, silently losing the change. keepalive tells the
-        // browser to let it finish anyway.
-        keepalive: true
+        // browser to let it finish anyway. But browsers cap keepalive request bodies at
+        // 64KB, so a recipe save with a thumbnail would be rejected outright (a bare
+        // "Failed to fetch", no real request ever sent) if we always set it.
+        keepalive: payload.length < 60000
       });
       if(res.status === 401){ showLoginGate(); return null; }
       if(!res.ok) throw new Error('Bad response: ' + res.status);
